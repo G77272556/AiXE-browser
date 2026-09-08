@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Reguły kopii zapasowej dla Androida poniżej 12 (API < 31). Pusta = domyślne zachowanie
+     (system sam decyduje co backupować, głównie DataStore/Room w wewnętrznej pamięci appki). -->
+<full-backup-content>
+</full-backup-content>

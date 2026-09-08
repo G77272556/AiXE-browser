@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Reguły kopii zapasowej i transferu między urządzeniami dla Androida 12+ (API 31+).
+     Pusta sekcja cloud-backup = domyślne zachowanie systemu. -->
+<data-extraction-rules>
+    <cloud-backup>
+    </cloud-backup>
+</data-extraction-rules>

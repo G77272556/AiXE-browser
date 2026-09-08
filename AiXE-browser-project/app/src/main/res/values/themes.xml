@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Motyw platformowy (NIE Compose Material3 — appka nie zależy od biblioteki
+         com.google.android.material, więc celowo dziedziczymy z czystego android:Theme, a nie z
+         Theme.Material3.*). To tylko tło/pasek statusu widoczne na ułamek sekundy przy starcie,
+         zanim SuperBrowserTheme (w App.kt) przejmie renderowanie przez Compose. -->
+    <style name="Theme.AiXEBrowser" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@android:color/white</item>
+    </style>
+</resources>

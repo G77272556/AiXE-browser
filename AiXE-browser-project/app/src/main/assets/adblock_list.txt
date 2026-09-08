@@ -1,0 +1,111 @@
+! Title: SuperBrowser adblock list (podzbiór formatu EasyList)
+! To jest wbudowana lista startowa — parser (AdBlockRuleParser w kodzie) rozumie ten sam
+! podstawowy format co prawdziwy EasyList: reguły blokujące host w postaci ||domena.com^
+! Linie zaczynające się od "!" to komentarze (ignorowane).
+! Reguły kosmetyczne/CSS (zawierające ## albo #@#) oraz wyjątki (@@...) są w kodzie świadomie
+! pomijane — WebView nie ma API do wstrzykiwania reguł kosmetycznych jak Chrome, a blokowanie
+! po hoście w shouldInterceptRequest pokrywa większość realnych domen reklamowych/trackingowych.
+!
+! Żeby użyć PEŁNEJ, aktualnej listy: pobierz https://easylist.to/easylist/easylist.txt
+! (i ewentualnie https://easylist.to/easylist/easyprivacy.txt) i podmień treść tego pliku —
+! kod nie wymaga żadnych zmian, bo obsługuje ten sam format reguł ||...^.
+
+! ===== Reklamy displayowe / sieci reklamowe =====
+||doubleclick.net^
+||googlesyndication.com^
+||googleadservices.com^
+||adservice.google.com^
+||adservice.google.pl^
+||pagead2.googlesyndication.com^
+||ads.google.com^
+||googletagservices.com^
+||googletagmanager.com^
+||adnxs.com^
+||adsrvr.org^
+||advertising.com^
+||amazon-adsystem.com^
+||criteo.com^
+||criteo.net^
+||outbrain.com^
+||taboola.com^
+||media.net^
+||yieldmo.com^
+||gumgum.com^
+||bidswitch.net^
+||3lift.com^
+||spotxchange.com^
+||teads.tv^
+||sharethrough.com^
+||adtechus.com^
+||serving-sys.com^
+||flashtalking.com^
+||revcontent.com^
+||mgid.com^
+||popads.net^
+||propellerads.com^
+||adcolony.com^
+||smartadserver.com^
+||adform.net^
+||adsafeprotected.com^
+||pubmatic.com^
+||rubiconproject.com^
+||openx.net^
+||casalemedia.com^
+||districtm.io^
+||indexexchange.com^
+||sovrn.com^
+||sonobi.com^
+||triplelift.com^
+||contextweb.com^
+||adroll.com^
+||bidtellect.com^
+
+! ===== Trackery / analityka =====
+||scorecardresearch.com^
+||quantserve.com^
+||moatads.com^
+||chartbeat.com^
+||newrelic.com^
+||mixpanel.com^
+||segment.io^
+||segment.com^
+||hotjar.com^
+||fullstory.com^
+||mouseflow.com^
+||crazyegg.com^
+||optimizely.com^
+||amplitude.com^
+||heap.io^
+||clicktale.net^
+||pingdom.net^
+||statcounter.com^
+
+! ===== Reklamy w social media / śledzenie między stronami =====
+! UWAGA: parser rozumie tylko blokowanie CAŁEGO hosta (nie ścieżek), więc celowo NIE dodajemy
+! tu reguł typu "facebook.com/tr^" czy "bing.com/ads^" — po uproszczeniu do samego hosta
+! zablokowałyby całe facebook.com / bing.com (w tym np. logowanie przez Facebooka albo
+! domyślną wyszukiwarkę), a nie tylko konkretny piksel śledzący.
+||connect.facebook.net^
+||analytics.tiktok.com^
+||ads.tiktok.com^
+||ads-api.tiktok.com^
+||ads.linkedin.com^
+||px.ads.linkedin.com^
+||ads.pinterest.com^
+||ads.reddit.com^
+||analytics.twitter.com^
+||ads-twitter.com^
+
+! ===== Popupy / push notification spam / niechciane oprogramowanie =====
+||pushwoosh.com^
+||onesignal.com^
+||propeller-ads.com^
+||adk2.com^
+||exoclick.com^
+||juicyads.com^
+||trafficjunky.com^
+||popcash.net^
+||adcash.com^
+||clickadu.com^
+||hilltopads.net^
+||adsterra.com^

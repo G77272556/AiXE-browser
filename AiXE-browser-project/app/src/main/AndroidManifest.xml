@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Przeglądanie stron, pobieranie plików, zapytania sieciowe (adblock/rules) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Geolokalizacja stron (onGeolocationPermissionsShowPrompt w App.kt) -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+
+    <!-- Kamera/mikrofon dla stron (onPermissionRequest w App.kt, np. wideorozmowy w przeglądarce) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Powiadomienie o ukończonym pobieraniu (Android 13+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Wymagane TYLKO do Androida 9 (API 28) włącznie — DownloadManager.setDestinationInExternalPublicDir
+         wymagało tego przed wprowadzeniem scoped storage w Androidzie 10. Na Androidzie 10+ system i tak
+         to ignoruje (stąd maxSdkVersion), DownloadManager ma tam już dostęp bez tego uprawnienia. -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+
+    <!-- Aplikacja korzysta z kamery/mikrofonu wyłącznie na życzenie stron w WebView, nie jako
+         funkcja rdzenia appki — nie wymagamy więc tego sprzętu do instalacji na urządzeniach bez niego. -->
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.microphone"
+        android:required="false" />
+
+    <application
+        android:name=".SuperBrowserApp"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.AiXEBrowser"
+        android:usesCleartextTraffic="false">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.AiXEBrowser"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Pozwala otwierać linki http/https bezpośrednio w AiXE (jako opcja w systemowym
+                 oknie wyboru przeglądarki), a nie tylko przez ręczne wpisanie adresu w appce. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+            </intent-filter>
+        </activity>
+
+    </application>
+
+</manifest>

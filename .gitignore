@@ -1,0 +1,18 @@
+# Wyniki budowania
+*.iml
+.gradle/
+build/
+app/build/
+local.properties
+.DS_Store
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Android Studio
+.idea/
+*.hprof
+
+# Klucze/keystore — nigdy nie commitować
+*.keystore
+*.jks

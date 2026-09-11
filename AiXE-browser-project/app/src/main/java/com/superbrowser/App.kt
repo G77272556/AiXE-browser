@@ -351,7 +351,7 @@ class SettingsRepository(private val context: Context) {
         prefs[themeKey]?.let { AppTheme.valueOf(it) } ?: AppTheme.SYSTEM
     }
     val searchEngineUrl: Flow<String> = context.dataStore.data.map { prefs ->
-        prefs[searchEngineKey] ?: "https://www.bing.com/search?q={query}"
+        prefs[searchEngineKey] ?: "https://www.google.com/search?q={query}"
     }
     val adBlockEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[adBlockKey] ?: true
@@ -392,10 +392,20 @@ object WebViewHardening {
         settings.allowUniversalAccessFromFileURLs = false
         settings.savePassword = false
         settings.safeBrowsingEnabled = true
-        settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+        // POPRAWKA: NEVER_ALLOW blokował całe strony, które ładują choć jeden zasób po http (dość częste
+        // na starszych/mniejszych stronach) — to była jedna z przyczyn "niektóre strony się nie wczytują".
+        // COMPATIBILITY_MODE to zachowanie zbliżone do współczesnego Chrome: nadal ostrożne, ale nie zabija
+        // całej strony przez jeden nie-krytyczny zasób mixed-content.
+        settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
         val isDebugBuild = (webView.context.applicationInfo.flags and
             android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
         WebView.setWebContentsDebuggingEnabled(isDebugBuild)
+    }
+
+    // NOWE: dodatkowe twardnienie dla kart prywatnych — bez cache na dysku i bez zapisu formularzy,
+    // żeby jak najmniej śladów sesji prywatnej trafiało poza samą kartę.
+    fun applyPrivateModeSettings(webView: WebView) {
+        webView.settings.cacheMode = WebSettings.LOAD_NO_CACHE
     }
 }
 
@@ -556,6 +566,13 @@ class BrowserTab(
     // NOWE: true dla świeżo utworzonej karty, która jeszcze nie zaczęła nawigacji — pokazuje ekran skrótów
     // zamiast WebView. Ustawiane na false przy pierwszej realnej nawigacji (patrz navigate() i onPageStarted).
     var isNewTabPage = mutableStateOf(false)
+    // POPRAWKA: zwykły var (nie stan Compose) — zapamiętuje adres, który WŁAŚNIE nawigujemy/klikamy,
+    // ustawiany PRZED faktycznym załadowaniem (patrz navigate() i shouldOverrideUrlLoading). Potrzebny,
+    // bo onReceivedSslError porównywał błąd do view.url, które w momencie błędu certyfikatu często jest
+    // jeszcze poprzednią stroną (albo puste na świeżej karcie) — przez co ostrzeżenie o certyfikacie dla
+    // GŁÓWNEJ strony było mylnie traktowane jako błąd podzasobu i po cichu anulowane (strona po prostu
+    // nigdy się nie wczytywała, bez żadnego komunikatu). lastNavigationUrl śledzi to poprawnie.
+    var lastNavigationUrl: String? = null
 }
 
 class DownloadRecord(val downloadManagerId: Long, val fileName: String, val mimeType: String?) {
@@ -623,6 +640,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             settings.setSupportMultipleWindows(true)
         }
         WebViewHardening.applyHardenedSettings(webView)
+        if (isPrivate) WebViewHardening.applyPrivateModeSettings(webView)
         val tab = BrowserTab(webView = webView, isPrivate = isPrivate)
         tab.isNewTabPage.value = showStartPage
         tabs.add(tab)
@@ -635,7 +653,8 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 tab.isNewTabPage.value = false // zabezpieczenie: każda realna nawigacja chowa ekran skrótów
             }
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                val verdict = DangerousUrlGuard.evaluate(request.url.toString())
+                val target = request.url.toString()
+                val verdict = DangerousUrlGuard.evaluate(target)
                 when (verdict.risk) {
                     DangerousUrlGuard.RiskLevel.BLOCK -> {
                         tab.securityWarning.value = verdict.reason
@@ -646,6 +665,9 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                     }
                     DangerousUrlGuard.RiskLevel.SAFE -> Unit
                 }
+                // POPRAWKA: zapamiętujemy adres, który faktycznie zaraz zacznie się ładować (np. klik w link
+                // na stronie), żeby onReceivedSslError mógł go poprawnie rozpoznać jako nawigację głównej ramki.
+                tab.lastNavigationUrl = target
                 return false
             }
             override fun onPageFinished(view: WebView, u: String) {
@@ -679,7 +701,16 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 }
             }
             override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
-                val isMainPageRequest = error.url == view.url
+                // POPRAWKA: porównanie było do view.url, który w chwili błędu certyfikatu zwykle jeszcze NIE
+                // zdążył się zaktualizować (ustawia się dopiero w onPageStarted, który leci po tym callbacku,
+                // albo jest wciąż poprzednią stroną / pusty na świeżej karcie). Efekt: błąd certyfikatu dla
+                // GŁÓWNEJ strony prawie zawsze wypadał jako "nie main frame" -> handler.cancel() bez żadnego
+                // komunikatu -> strona po prostu nie wczytywała się, wyglądając jak losowy błąd. Teraz
+                // porównujemy do adresu, który sami zainicjowaliśmy jako nawigację (lastNavigationUrl),
+                // po hoście (żeby przetrwać ewentualne przekierowania w obrębie tej samej domeny).
+                val requestedHost = tab.lastNavigationUrl?.let { runCatching { Uri.parse(it).host }.getOrNull() }
+                val errorHost = runCatching { Uri.parse(error.url).host }.getOrNull()
+                val isMainPageRequest = requestedHost != null && requestedHost == errorHost
                 if (!isMainPageRequest) {
                     handler.cancel()
                     return
@@ -777,7 +808,10 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             requestNotificationPermission.value = true
             startDownload(downloadUrl, contentDisposition, mimeType)
         }
-        if (!showStartPage && url.isNotBlank()) webView.loadUrl(url)
+        if (!showStartPage && url.isNotBlank()) {
+            tab.lastNavigationUrl = url
+            webView.loadUrl(url)
+        }
         if (select) activeTabId.value = tab.id
         return tab
     }
@@ -790,7 +824,8 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             closedTabsStack.addLast(closedUrl)
             if (closedTabsStack.size > 15) closedTabsStack.removeFirst()
         }
-        if (closedTab.isPrivate) {
+        val wasPrivate = closedTab.isPrivate
+        if (wasPrivate) {
             closedTab.webView.apply {
                 clearHistory()
                 clearCache(true)
@@ -799,6 +834,18 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         }
         closedTab.webView.destroy()
         tabs.removeAt(idx)
+        // POPRAWKA (prywatność): CookieManager w WebView jest GLOBALNY — dzielony przez wszystkie karty,
+        // prywatne i zwykłe. Dopóki chociaż jedna karta prywatna jest jeszcze otwarta, nie kasujemy ciasteczek
+        // (żeby nie wylogować z niej użytkownika w trakcie sesji). Ale gdy zamykamy WŁAŚNIE OSTATNIĄ kartę
+        // prywatną, czyścimy cookies/localStorage od razu — to gwarantuje, że żadna sesja/logowanie z trybu
+        // prywatnego nie przetrwa poza tę sesję i nie "wycieknie" do zwykłych kart otwartych później.
+        // Zastrzeżenie: pełna izolacja (żeby prywatna i zwykła karta mogły być zalogowane RÓWNOCZEŚNIE na tej
+        // samej stronie jako różne konta) wymagałaby osobnego katalogu danych WebView na proces
+        // (WebView.setDataDirectorySuffix) i w praktyce osobnego procesu dla trybu prywatnego — to bigger
+        // architektoniczna zmiana, do rozważenia osobno, jeśli to ma być priorytet.
+        if (wasPrivate && tabs.none { it.isPrivate }) {
+            clearCookiesAndSiteData()
+        }
         if (activeTabId.value == tabId) {
             activeTabId.value = tabs.getOrNull(idx.coerceAtMost(tabs.lastIndex))?.id
         }
@@ -833,6 +880,10 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 DangerousUrlGuard.RiskLevel.SAFE -> Unit
             }
             tab.isNewTabPage.value = false // wychodzimy z ekranu skrótów, gdy tylko użytkownik faktycznie nawiguje
+            // POPRAWKA: zapamiętaj docelowy adres PRZED loadUrl, żeby ewentualny błąd certyfikatu dla tej
+            // nawigacji dało się poprawnie skojarzyć z główną ramką (patrz onReceivedSslError i komentarz
+            // przy BrowserTab.lastNavigationUrl).
+            tab.lastNavigationUrl = target
             tab.webView.loadUrl(target)
         }
     }
@@ -852,6 +903,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         val currentUrl = tab.webView.url ?: tab.url.value
         if (currentUrl.isBlank()) return
         val translated = buildTranslateUrl(currentUrl, targetLang) ?: return
+        tab.lastNavigationUrl = translated
         tab.webView.loadUrl(translated)
     }
     private fun buildTranslateUrl(original: String, targetLang: String): String? {
@@ -1861,6 +1913,11 @@ private fun AddressSecurityIcon(tab: BrowserTab?) {
 
 // NOWE: ekran nowej karty — kafelki najczęściej odwiedzanych stron (z historii) zamiast automatycznego
 // ładowania strony domowej. Kliknięcie kafelka nawiguje i chowa ten ekran (patrz onPageStarted w createTab).
+// POPRAWKA: cała zawartość jest teraz w Column ze verticalScroll — wcześniej przy większej liczbie kafelków
+// (albo mniejszym ekranie) dolna część (ciekawostka dnia) była ucinana bez możliwości przewinięcia.
+// Usunięto też Spacer(weight(1f)), którego celem było "przypięcie" ciekawostki do dołu — ten trik NIE działa
+// wewnątrz kolumny z verticalScroll (Compose rzuca wyjątkiem, bo scrollowalna kolumna ma nieskończoną wysokość,
+// więc weight nie ma się do czego odnieść) — zastąpiony zwykłym stałym odstępem.
 @Composable
 private fun StartPageContent(
     isPrivate: Boolean,
@@ -1890,6 +1947,7 @@ private fun StartPageContent(
         Modifier
             .fillMaxSize()
             .then(backgroundModifier)
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -2033,10 +2091,9 @@ private fun StartPageContent(
                 Spacer(Modifier.height(12.dp))
             }
         }
-        // NOWE: rozpycha resztę kolumny, żeby "ciekawostka dnia" wylądowała na samym dole ekranu.
-        Spacer(Modifier.weight(1f))
-        Spacer(Modifier.height(12.dp))
-        // "ciekawostka dnia" — teraz na dole ekranu, ikona systemowa (żarówka) zamiast emoji.
+        // POPRAWKA: stały odstęp zamiast Spacer(weight(1f)) — patrz komentarz nad funkcją.
+        Spacer(Modifier.height(24.dp))
+        // "ciekawostka dnia" — ikona systemowa (żarówka) zamiast emoji.
         // Ta sama treść przez cały dzień (patrz factOfTheDay()), inna kolejnego dnia.
         Row(
             Modifier
@@ -2061,7 +2118,6 @@ private fun StartPageContent(
         }
     }
 }
-
 @Composable
 private fun FrequentSiteTile(
     site: FrequentSite,
@@ -2123,7 +2179,6 @@ private fun FrequentSiteTile(
         )
     }
 }
-
 @Composable
 private fun WebViewContainer(webView: WebView, modifier: Modifier = Modifier) {
     AndroidView(
@@ -2141,7 +2196,6 @@ private fun WebViewContainer(webView: WebView, modifier: Modifier = Modifier) {
         }
     )
 }
-
 @Composable
 private fun TabChip(tab: BrowserTab, selected: Boolean, onSelect: () -> Unit, onClose: () -> Unit) {
     val chipColor = when {
@@ -2202,7 +2256,6 @@ private fun TabChip(tab: BrowserTab, selected: Boolean, onSelect: () -> Unit, on
         }
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit, onNavigate: (String) -> Unit) {
@@ -2238,7 +2291,6 @@ fun HistoryScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit,
         }
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookmarksScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit, onNavigate: (String) -> Unit) {
@@ -2272,7 +2324,6 @@ fun BookmarksScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Uni
         }
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit) {
@@ -2309,19 +2360,18 @@ fun DownloadsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Uni
         }
     }
 }
-
-// NOWE: gotowe, popularne wyszukiwarki do wyboru w Ustawieniach — combobox zamiast wpisywania URL-a ręcznie.
-// "Własny adres" (wartość null) to opcja specjalna — jej wybranie odsłania pole tekstowe do wpisania czegokolwiek innego.
+// POPRAWKA: Google jest teraz pierwszą (domyślną) pozycją na liście — zgodnie z prośbą, żeby domyślną
+// wyszukiwarką był Google. Reszta listy zaktualizowana/uporządkowana wg popularności. "Własny adres"
+// (wartość null) zawsze zostaje na końcu — jej wybranie odsłania pole tekstowe do wpisania czegokolwiek innego.
 private val searchEnginePresets: List<Pair<String, String?>> = listOf(
-    "Bing" to "https://www.bing.com/search?q={query}",
     "Google" to "https://www.google.com/search?q={query}",
+    "Bing" to "https://www.bing.com/search?q={query}",
     "DuckDuckGo" to "https://duckduckgo.com/?q={query}",
-    "Startpage" to "https://www.startpage.com/sp/search?query={query}",
-    "Ecosia" to "https://www.ecosia.org/search?q={query}",
     "Brave Search" to "https://search.brave.com/search?q={query}",
+    "Ecosia" to "https://www.ecosia.org/search?q={query}",
+    "Startpage" to "https://www.startpage.com/sp/search?query={query}",
     "Własny adres" to null
 )
-
 // NOWE: generyczny combobox "wybierz z listy gotowych opcji". Etykieta wybranej pozycji jest wyliczana
 // z aktualnej wartości (selectedValue) — jeśli nie pasuje do żadnego presetu, pokazuje "Własny adres",
 // co pozwala wywołującemu (SettingsScreen) warunkowo odsłonić pole do ręcznego wpisania.
@@ -2358,13 +2408,32 @@ private fun PresetDropdown(
         }
     }
 }
-
+// NOWE: prosty nagłówek sekcji w Ustawieniach — spójny styl dla wszystkich grup (Wygląd / Przeglądanie /
+// Pobieranie / Prywatność), zamiast dotychczasowego jednego długiego ciągu bez wyraźnych podziałów.
+@Composable
+private fun SettingsSectionCard(
+    title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.height(14.dp))
+            content()
+        }
+    }
+}
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit) {
     val context = LocalContext.current
     val currentTheme by viewModel.theme.collectAsState(initial = AppTheme.SYSTEM)
-    val currentSearchEngine by viewModel.searchEngineUrlFlow.collectAsState(initial = "https://www.bing.com/search?q={query}")
+    val currentSearchEngine by viewModel.searchEngineUrlFlow.collectAsState(initial = "https://www.google.com/search?q={query}")
     val adBlockEnabled by viewModel.adBlockEnabledFlow.collectAsState(initial = true)
     val downloadFolderUri by viewModel.downloadFolderUriFlow.collectAsState(initial = null)
     val newTabGradientId by viewModel.newTabGradientIdFlow.collectAsState(initial = "none")
@@ -2382,6 +2451,18 @@ fun SettingsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit
             viewModel.setDownloadFolderUri(uri.toString())
         }
     }
+    // POPRAWKA: zapisujemy wyszukiwarkę OD RAZU po wyborze presetu z listy (bez osobnego przycisku "Zapisz")
+    // — dokładnie tak, jak działa to w prawdziwych przeglądarkach. Przycisk "Zapisz" zostaje tylko dla
+    // przypadku "Własny adres", gdzie trzeba dokończyć wpisywanie tekstu, zanim zapis ma sens.
+    fun saveSearchEngine(url: String) {
+        val saved = url.ifBlank { "https://www.google.com/search?q={query}" }
+        viewModel.setSearchEngineUrl(saved)
+        searchEngineText = saved
+        scope.launch { snackbarHostState.showSnackbar("Zapisano wyszukiwarkę") }
+    }
+    // POPRAWKA: cały ekran Ustawień przełożony z jednej długiej listy pól na pogrupowane karty (Wygląd,
+    // Wyszukiwanie i przeglądanie, Pobieranie, Prywatność) — łatwiej się w tym połapać i wygląda mniej
+    // chaotycznie niż wcześniejszy jeden ciągły blok bez podziałów.
     Scaffold(
         topBar = {
             TopAppBar(
@@ -2395,151 +2476,149 @@ fun SettingsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit
             Modifier
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(20.dp)
+                .padding(16.dp)
                 .fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("Motyw aplikacji", style = MaterialTheme.typography.labelLarge)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ThemeOption("Systemowy", currentTheme == AppTheme.SYSTEM) { viewModel.setTheme(AppTheme.SYSTEM) }
-                ThemeOption("Jasny", currentTheme == AppTheme.LIGHT) { viewModel.setTheme(AppTheme.LIGHT) }
-                ThemeOption("Ciemny", currentTheme == AppTheme.DARK) { viewModel.setTheme(AppTheme.DARK) }
-            }
-            Spacer(Modifier.height(18.dp))
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text("Blokowanie reklam", style = MaterialTheme.typography.labelLarge)
-                    Text(
-                        "Podstawowe filtrowanie znanych domen reklamowych",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-                Switch(checked = adBlockEnabled, onCheckedChange = { viewModel.setAdBlockEnabled(it) })
-            }
-            Spacer(Modifier.height(18.dp))
-            Text("Domyślna wyszukiwarka", style = MaterialTheme.typography.labelLarge)
-            Text(
-                "Użyj {query} w miejscu, gdzie ma trafić wpisana fraza.",
-                style = MaterialTheme.typography.bodySmall
-            )
-            Spacer(Modifier.height(6.dp))
-            // NOWE: combobox z gotowymi wyszukiwarkami. "Własny adres" (ostatnia pozycja) odsłania pole
-            // tekstowe do ręcznego wpisania — dokładnie tak jak wcześniej, gdy wartość nie pasuje do presetu.
-            PresetDropdown(
-                options = searchEnginePresets,
-                selectedValue = searchEngineText,
-                onOptionSelected = { picked -> if (picked != null) searchEngineText = picked }
-            )
-            if (searchEnginePresets.none { it.second == searchEngineText }) {
+            SettingsSectionCard(title = "Wygląd", icon = Icons.Default.Palette) {
+                Text("Motyw aplikacji", style = MaterialTheme.typography.labelLarge)
                 Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = searchEngineText,
-                    onValueChange = { searchEngineText = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text("Własny adres wyszukiwarki") },
-                    isError = searchEngineText.isBlank()
-                )
-            }
-            if (searchEngineText.isBlank()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ThemeOption("Systemowy", currentTheme == AppTheme.SYSTEM) { viewModel.setTheme(AppTheme.SYSTEM) }
+                    ThemeOption("Jasny", currentTheme == AppTheme.LIGHT) { viewModel.setTheme(AppTheme.LIGHT) }
+                    ThemeOption("Ciemny", currentTheme == AppTheme.DARK) { viewModel.setTheme(AppTheme.DARK) }
+                }
+                Spacer(Modifier.height(18.dp))
+                Text("Tło nowej karty", style = MaterialTheme.typography.labelLarge)
                 Text(
-                    "Pole nie może być puste — zostanie użyta domyślna wyszukiwarka.",
+                    "Gradient na ekranie skrótów nowej karty. Tryb prywatny używa ciemniejszego wariantu.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }
-            Spacer(Modifier.height(20.dp))
-            Button(onClick = {
-                val savedSearchEngine = searchEngineText.ifBlank { "https://www.bing.com/search?q={query}" }
-                viewModel.setSearchEngineUrl(savedSearchEngine)
-                searchEngineText = savedSearchEngine
-                scope.launch {
-                    snackbarHostState.showSnackbar("Zapisano ustawienia")
-                }
-            }) {
-                Text("Zapisz")
-            }
-            Spacer(Modifier.height(28.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(18.dp))
-            Text("Tło nowej karty", style = MaterialTheme.typography.labelLarge)
-            Text(
-                "Gradient widoczny na ekranie skrótów nowej karty. W trybie prywatnym używany jest osobny, ciemniejszy wariant tego samego motywu.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(10.dp))
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                gradientPresets.forEach { preset ->
-                    GradientSwatch(
-                        preset = preset,
-                        selected = preset.id == newTabGradientId,
-                        onClick = { viewModel.setNewTabGradientId(preset.id) }
-                    )
-                }
-            }
-            Spacer(Modifier.height(28.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(18.dp))
-            Text("Folder pobierania", style = MaterialTheme.typography.labelLarge)
-            Text(
-                if (downloadFolderUri != null) "Wybrany folder: ${friendlyFolderName(downloadFolderUri!!)}"
-                else "Domyślny — systemowy folder Pobrane",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { folderPickerLauncher.launch(null) }) {
-                    Text("Wybierz folder")
-                }
-                if (downloadFolderUri != null) {
-                    TextButton(onClick = { viewModel.setDownloadFolderUri(null) }) {
-                        Text("Przywróć domyślny")
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    gradientPresets.forEach { preset ->
+                        GradientSwatch(
+                            preset = preset,
+                            selected = preset.id == newTabGradientId,
+                            onClick = { viewModel.setNewTabGradientId(preset.id) }
+                        )
                     }
                 }
             }
-            Spacer(Modifier.height(28.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(18.dp))
-            Text("Dane przeglądania", style = MaterialTheme.typography.labelLarge)
-            ClearDataRow(
-                title = "Historia",
-                description = "Lista odwiedzonych stron zapisana w tej aplikacji",
-                onClear = {
-                    viewModel.clearHistory()
-                    scope.launch { snackbarHostState.showSnackbar("Historia wyczyszczona") }
+            SettingsSectionCard(title = "Wyszukiwanie i przeglądanie", icon = Icons.Default.Search) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Blokowanie reklam", style = MaterialTheme.typography.labelLarge)
+                        Text(
+                            "Podstawowe filtrowanie znanych domen reklamowych",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(checked = adBlockEnabled, onCheckedChange = { viewModel.setAdBlockEnabled(it) })
                 }
-            )
-            ClearDataRow(
-                title = "Cookie i dane witryn",
-                description = "Wylogujesz się ze wszystkich odwiedzanych stron",
-                onClear = {
-                    viewModel.clearCookiesAndSiteData()
-                    scope.launch { snackbarHostState.showSnackbar("Cookie i dane witryn wyczyszczone") }
+                Spacer(Modifier.height(18.dp))
+                Text("Domyślna wyszukiwarka", style = MaterialTheme.typography.labelLarge)
+                Spacer(Modifier.height(6.dp))
+                PresetDropdown(
+                    options = searchEnginePresets,
+                    selectedValue = searchEngineText,
+                    onOptionSelected = { picked ->
+                        if (picked != null) {
+                            // Preset ma gotowy adres -> zapisz od razu, bez czekania na przycisk.
+                            saveSearchEngine(picked)
+                        } else {
+                            // "Własny adres" wybrany -> tylko odsłoń pole tekstowe, zapis dopiero na "Zapisz".
+                            searchEngineText = ""
+                        }
+                    }
+                )
+                if (searchEnginePresets.none { it.second == searchEngineText }) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Użyj {query} w miejscu, gdzie ma trafić wpisana fraza.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedTextField(
+                        value = searchEngineText,
+                        onValueChange = { searchEngineText = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("Własny adres wyszukiwarki") },
+                        isError = searchEngineText.isBlank()
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Button(
+                        onClick = { saveSearchEngine(searchEngineText) },
+                        enabled = searchEngineText.isNotBlank()
+                    ) {
+                        Text("Zapisz")
+                    }
                 }
-            )
-            ClearDataRow(
-                title = "Bufor (cache)",
-                description = "Strony mogą wczytywać się chwilę wolniej za pierwszym razem",
-                onClear = {
-                    viewModel.clearBrowserCache()
-                    scope.launch { snackbarHostState.showSnackbar("Bufor wyczyszczony") }
+            }
+            SettingsSectionCard(title = "Pobieranie", icon = Icons.Default.Download) {
+                Text(
+                    if (downloadFolderUri != null) "Wybrany folder: ${friendlyFolderName(downloadFolderUri!!)}"
+                    else "Domyślny — systemowy folder Pobrane",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { folderPickerLauncher.launch(null) }) {
+                        Text("Wybierz folder")
+                    }
+                    if (downloadFolderUri != null) {
+                        TextButton(onClick = { viewModel.setDownloadFolderUri(null) }) {
+                            Text("Przywróć domyślny")
+                        }
+                    }
                 }
-            )
-            Spacer(Modifier.height(24.dp))
+            }
+            SettingsSectionCard(title = "Prywatność i dane", icon = Icons.Default.PrivacyTip) {
+                ClearDataRow(
+                    title = "Historia",
+                    description = "Lista odwiedzonych stron zapisana w tej aplikacji",
+                    onClear = {
+                        viewModel.clearHistory()
+                        scope.launch { snackbarHostState.showSnackbar("Historia wyczyszczona") }
+                    }
+                )
+                HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                ClearDataRow(
+                    title = "Cookie i dane witryn",
+                    description = "Wylogujesz się ze wszystkich odwiedzanych stron",
+                    onClear = {
+                        viewModel.clearCookiesAndSiteData()
+                        scope.launch { snackbarHostState.showSnackbar("Cookie i dane witryn wyczyszczone") }
+                    }
+                )
+                HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                ClearDataRow(
+                    title = "Bufor (cache)",
+                    description = "Strony mogą wczytywać się chwilę wolniej za pierwszym razem",
+                    onClear = {
+                        viewModel.clearBrowserCache()
+                        scope.launch { snackbarHostState.showSnackbar("Bufor wyczyszczony") }
+                    }
+                )
+            }
+            Spacer(Modifier.height(8.dp))
         }
     }
 }
-
 private fun friendlyFolderName(uriString: String): String {
     return try {
         val uri = Uri.parse(uriString)
@@ -2549,7 +2628,6 @@ private fun friendlyFolderName(uriString: String): String {
         "wybrany folder"
     }
 }
-
 @Composable
 private fun ClearDataRow(title: String, description: String, onClear: () -> Unit) {
     var confirming by remember { mutableStateOf(false) }
@@ -2581,12 +2659,10 @@ private fun ClearDataRow(title: String, description: String, onClear: () -> Unit
         )
     }
 }
-
 @Composable
 private fun ThemeOption(label: String, selected: Boolean, onClick: () -> Unit) {
     FilterChip(selected = selected, onClick = onClick, label = { Text(label) })
 }
-
 // NOWE: kafelek-podgląd jednego presetu gradientu w Ustawieniach — kółko z gradientem (albo szare "Brak"),
 // obwódka + ikona check gdy wybrany, etykieta pod spodem.
 @Composable
@@ -2632,7 +2708,6 @@ private fun GradientSwatch(preset: GradientPreset, selected: Boolean, onClick: (
         )
     }
 }
-
 // NOWE: ekran pokazywany zamiast normalnej appki, jeśli poprzednie uruchomienie zakończyło się crashem —
 // pozwala odczytać pełny stack trace bezpośrednio na telefonie (bez adb/kabla) i skopiować go do wklejenia.
 @Composable
@@ -2677,7 +2752,6 @@ private fun CrashLogScreen(log: String, onContinue: () -> Unit) {
         }
     }
 }
-
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

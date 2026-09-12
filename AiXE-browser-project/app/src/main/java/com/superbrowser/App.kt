@@ -781,7 +781,15 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 isUserGesture: Boolean,
                 resultMsg: Message
             ): Boolean {
-                val newTab = createTab(url = "about:blank", select = true, isPrivate = isPrivate)
+                // POPRAWKA (crash): "New WebView for popup window must not have been previously navigated."
+                // createTab(url = "about:blank", ...) wywoływało w środku webView.loadUrl("about:blank") ZANIM
+                // ten WebView trafił do transport.webView — Chromium wymaga, żeby WebView przekazywany jako
+                // cel okna popup (window.open() / target="_blank") był kompletnie "dziewiczy", nienawigowany
+                // nawet do about:blank. Stąd crash przy KAŻDEJ stronie, która otwiera link w nowym oknie/karcie
+                // (bardzo częste — np. wyniki wyszukiwania, artykuły z linkami target="_blank").
+                // Naprawa: tworzymy kartę z pustym url i showStartPage=false, żeby createTab NIE wołało loadUrl —
+                // sam WebView dostanie nawigację od silnika Chromium w momencie podpięcia transportu.
+                val newTab = createTab(url = "", select = true, isPrivate = isPrivate, showStartPage = false)
                 val transport = resultMsg.obj as WebView.WebViewTransport
                 transport.webView = newTab.webView
                 resultMsg.sendToTarget()
@@ -1014,6 +1022,11 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     }
     fun clearHistory() {
         viewModelScope.launch { historyDao.clear() }
+    }
+    // NOWE: usunięcie POJEDYNCZEGO wpisu historii — DAO już to umiało (deleteById), tylko nic
+    // wcześniej z tego nie korzystało. Zasila przycisk usuwania na karcie w HistoryScreen.
+    fun deleteHistoryEntry(id: Long) {
+        viewModelScope.launch { historyDao.deleteById(id) }
     }
     fun clearCookiesAndSiteData() {
         android.webkit.CookieManager.getInstance().apply {
@@ -2118,6 +2131,7 @@ private fun StartPageContent(
         }
     }
 }
+
 @Composable
 private fun FrequentSiteTile(
     site: FrequentSite,
@@ -2179,6 +2193,7 @@ private fun FrequentSiteTile(
         )
     }
 }
+
 @Composable
 private fun WebViewContainer(webView: WebView, modifier: Modifier = Modifier) {
     AndroidView(
@@ -2196,6 +2211,7 @@ private fun WebViewContainer(webView: WebView, modifier: Modifier = Modifier) {
         }
     )
 }
+
 @Composable
 private fun TabChip(tab: BrowserTab, selected: Boolean, onSelect: () -> Unit, onClose: () -> Unit) {
     val chipColor = when {
@@ -2256,41 +2272,170 @@ private fun TabChip(tab: BrowserTab, selected: Boolean, onSelect: () -> Unit, on
         }
     }
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit, onNavigate: (String) -> Unit) {
     val history by viewModel.historyFlow.collectAsState(initial = emptyList())
-    val formatter = remember { SimpleDateFormat("dd.MM HH:mm", Locale.getDefault()) }
+    // POPRAWKA: "Wyczyść" w pasku górnym czyściło całą historię BEZ potwierdzenia — jedno przypadkowe
+    // kliknięcie i wszystko znika bezpowrotnie. Teraz, tak jak w Ustawieniach, wymaga potwierdzenia.
+    var confirmingClearAll by remember { mutableStateOf(false) }
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Historia") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) } },
                 actions = {
-                    TextButton(onClick = { viewModel.clearHistory() }) { Text("Wyczyść") }
+                    if (history.isNotEmpty()) {
+                        TextButton(onClick = { confirmingClearAll = true }) { Text("Wyczyść") }
+                    }
                 }
             )
         }
     ) { padding ->
         if (history.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("Brak historii przeglądania", style = MaterialTheme.typography.bodyMedium)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        Icons.Default.History,
+                        contentDescription = null,
+                        modifier = Modifier.size(40.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Text("Brak historii przeglądania", style = MaterialTheme.typography.bodyMedium)
+                }
             }
-            return@Scaffold
+        } else {
+            // NOWE: panele-karty zamiast prostej listy — favicon strony (jak na ekranie nowej karty),
+            // host + tytuł, godzina odwiedzin, i przycisk usuwania TEGO JEDNEGO wpisu (bez kasowania całości).
+            LazyColumn(
+                Modifier
+                    .padding(padding)
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(vertical = 12.dp)
+            ) {
+                items(history, key = { it.id }) { entry ->
+                    HistoryEntryCard(
+                        entry = entry,
+                        onClick = { onNavigate(entry.url); onBack() },
+                        onDelete = { viewModel.deleteHistoryEntry(entry.id) }
+                    )
+                }
+            }
         }
-        LazyColumn(Modifier.padding(padding)) {
-            items(history, key = { it.id }) { entry ->
-                ListItem(
-                    headlineContent = { Text(entry.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    supportingContent = { Text(entry.url, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    trailingContent = { Text(formatter.format(Date(entry.visitedAt)), style = MaterialTheme.typography.labelSmall) },
-                    modifier = Modifier.clickable { onNavigate(entry.url); onBack() }
+    }
+    if (confirmingClearAll) {
+        AlertDialog(
+            onDismissRequest = { confirmingClearAll = false },
+            title = { Text("Wyczyścić całą historię?") },
+            text = { Text("Tej operacji nie można cofnąć.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmingClearAll = false
+                    viewModel.clearHistory()
+                }) { Text("Wyczyść", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmingClearAll = false }) { Text("Anuluj") }
+            }
+        )
+    }
+}
+
+// NOWE: pojedynczy panel historii — favicon (dekodowana z Base64, ta sama logika co na kafelkach
+// ekranu nowej karty), host + tytuł strony, godzina wizyty, i osobny przycisk usuwania z krótką
+// animacją znikania, żeby usunięcie jednego wpisu było wyraźnie widoczne, a nie nagłym skokiem listy.
+@Composable
+private fun HistoryEntryCard(entry: HistoryEntity, onClick: () -> Unit, onDelete: () -> Unit) {
+    val formatter = remember { SimpleDateFormat("dd.MM HH:mm", Locale.getDefault()) }
+    val host = remember(entry.url) { runCatching { Uri.parse(entry.url).host }.getOrNull()?.removePrefix("www.") ?: entry.url }
+    val faviconBitmap = remember(entry.faviconBase64) {
+        entry.faviconBase64?.let { encoded ->
+            try {
+                val bytes = android.util.Base64.decode(encoded, android.util.Base64.NO_WRAP)
+                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+    ) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                if (faviconBitmap != null) {
+                    androidx.compose.foundation.Image(
+                        bitmap = faviconBitmap,
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp)
+                    )
+                } else {
+                    Text(
+                        text = host.take(1).uppercase(),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    entry.title.ifBlank { host },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
                 )
-                HorizontalDivider()
+                Spacer(Modifier.height(2.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        host,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    Text(
+                        " · ${formatter.format(Date(entry.visitedAt))}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Spacer(Modifier.width(4.dp))
+            // POPRAWKA: przycisk usuwania TEGO wpisu — wcześniej jedyną opcją było wyczyszczenie
+            // CAŁEJ historii naraz. Osobny IconButton, żeby kliknięcie w kafelek dalej otwierało
+            // stronę, a usuwanie było wyraźnie oddzielną akcją (mniejszy hit-area, na krawędzi karty).
+            IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = "Usuń z historii",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp)
+                )
             }
         }
     }
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookmarksScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit, onNavigate: (String) -> Unit) {
@@ -2324,6 +2469,7 @@ fun BookmarksScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Uni
         }
     }
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit) {
@@ -2360,6 +2506,7 @@ fun DownloadsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Uni
         }
     }
 }
+
 // POPRAWKA: Google jest teraz pierwszą (domyślną) pozycją na liście — zgodnie z prośbą, żeby domyślną
 // wyszukiwarką był Google. Reszta listy zaktualizowana/uporządkowana wg popularności. "Własny adres"
 // (wartość null) zawsze zostaje na końcu — jej wybranie odsłania pole tekstowe do wpisania czegokolwiek innego.
@@ -2372,6 +2519,7 @@ private val searchEnginePresets: List<Pair<String, String?>> = listOf(
     "Startpage" to "https://www.startpage.com/sp/search?query={query}",
     "Własny adres" to null
 )
+
 // NOWE: generyczny combobox "wybierz z listy gotowych opcji". Etykieta wybranej pozycji jest wyliczana
 // z aktualnej wartości (selectedValue) — jeśli nie pasuje do żadnego presetu, pokazuje "Własny adres",
 // co pozwala wywołującemu (SettingsScreen) warunkowo odsłonić pole do ręcznego wpisania.
@@ -2408,6 +2556,7 @@ private fun PresetDropdown(
         }
     }
 }
+
 // NOWE: prosty nagłówek sekcji w Ustawieniach — spójny styl dla wszystkich grup (Wygląd / Przeglądanie /
 // Pobieranie / Prywatność), zamiast dotychczasowego jednego długiego ciągu bez wyraźnych podziałów.
 @Composable
@@ -2428,6 +2577,7 @@ private fun SettingsSectionCard(
         }
     }
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit) {
@@ -2511,6 +2661,7 @@ fun SettingsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit
                     }
                 }
             }
+
             SettingsSectionCard(title = "Wyszukiwanie i przeglądanie", icon = Icons.Default.Search) {
                 Row(
                     Modifier.fillMaxWidth(),
@@ -2568,6 +2719,7 @@ fun SettingsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit
                     }
                 }
             }
+
             SettingsSectionCard(title = "Pobieranie", icon = Icons.Default.Download) {
                 Text(
                     if (downloadFolderUri != null) "Wybrany folder: ${friendlyFolderName(downloadFolderUri!!)}"
@@ -2587,6 +2739,7 @@ fun SettingsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit
                     }
                 }
             }
+
             SettingsSectionCard(title = "Prywatność i dane", icon = Icons.Default.PrivacyTip) {
                 ClearDataRow(
                     title = "Historia",
@@ -2619,6 +2772,7 @@ fun SettingsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit
         }
     }
 }
+
 private fun friendlyFolderName(uriString: String): String {
     return try {
         val uri = Uri.parse(uriString)
@@ -2628,6 +2782,7 @@ private fun friendlyFolderName(uriString: String): String {
         "wybrany folder"
     }
 }
+
 @Composable
 private fun ClearDataRow(title: String, description: String, onClear: () -> Unit) {
     var confirming by remember { mutableStateOf(false) }
@@ -2659,10 +2814,12 @@ private fun ClearDataRow(title: String, description: String, onClear: () -> Unit
         )
     }
 }
+
 @Composable
 private fun ThemeOption(label: String, selected: Boolean, onClick: () -> Unit) {
     FilterChip(selected = selected, onClick = onClick, label = { Text(label) })
 }
+
 // NOWE: kafelek-podgląd jednego presetu gradientu w Ustawieniach — kółko z gradientem (albo szare "Brak"),
 // obwódka + ikona check gdy wybrany, etykieta pod spodem.
 @Composable
@@ -2708,6 +2865,7 @@ private fun GradientSwatch(preset: GradientPreset, selected: Boolean, onClick: (
         )
     }
 }
+
 // NOWE: ekran pokazywany zamiast normalnej appki, jeśli poprzednie uruchomienie zakończyło się crashem —
 // pozwala odczytać pełny stack trace bezpośrednio na telefonie (bez adb/kabla) i skopiować go do wklejenia.
 @Composable
@@ -2752,6 +2910,7 @@ private fun CrashLogScreen(log: String, onContinue: () -> Unit) {
         }
     }
 }
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

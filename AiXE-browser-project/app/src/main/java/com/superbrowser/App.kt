@@ -575,9 +575,20 @@ class BrowserTab(
     var lastNavigationUrl: String? = null
 }
 
-class DownloadRecord(val downloadManagerId: Long, val fileName: String, val mimeType: String?) {
+class DownloadRecord(
+    val downloadManagerId: Long,
+    val fileName: String,
+    val mimeType: String?,
+    // NOWE: moment rozpoczęcia pobierania — potrzebny do sortowania "Najnowsze/Najstarsze" na liście.
+    val startedAt: Long = System.currentTimeMillis()
+) {
     var progress = mutableStateOf(0)
     var status = mutableStateOf("Pobieranie...")
+    // NOWE: rozmiar pliku w bajtach (znany po pierwszej odpowiedzi z DownloadManagera) — do wyświetlenia na karcie.
+    var totalBytes = mutableStateOf(0L)
+    // NOWE: gotowy do otwarcia URI ukończonego pliku (patrz pollDownloadProgress) — używany zarówno przez
+    // dialog "Pobrano — otworzyć?" jak i przycisk otwierania na liście pobranych.
+    var openUri = mutableStateOf<Uri?>(null)
 }
 
 class BrowserViewModel(application: Application) : AndroidViewModel(application) {
@@ -593,6 +604,9 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     val fileChooserIntent = mutableStateOf<Intent?>(null)
     val pendingWebPermissionRequest = mutableStateOf<PermissionRequest?>(null)
     val pendingGeolocationRequest = mutableStateOf<GeolocationRequestInfo?>(null)
+    // NOWE: gdy pobieranie się kończy, ustawiamy tu jego rekord — BrowserScreen pokazuje wtedy globalny
+    // dialog "Pobrano — otworzyć plik?", niezależnie od tego, na którym ekranie akurat jest użytkownik.
+    val justCompletedDownload = mutableStateOf<DownloadRecord?>(null)
     val requestNotificationPermission = mutableStateOf(false)
     val theme: Flow<AppTheme> = settings.theme
     val searchEngineUrlFlow: Flow<String> = settings.searchEngineUrl
@@ -1083,47 +1097,105 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     }
     private fun pollDownloadProgress(manager: DownloadManager, record: DownloadRecord) {
         viewModelScope.launch {
+            // POPRAWKA (status "buguje się" / zawiesza na "Pobieranie..."): jeśli wiersz zapytania
+            // zniknie z bazy DownloadManagera (np. ktoś usunie pobranie ręcznie z systemowej appki
+            // "Pliki"), poprzedni kod pytał w kółko bez końca i status NIGDY się nie zmieniał — to była
+            // przyczyna wrażenia, że pobieranie "wisi". missingRowStreak liczy kolejne puste odpowiedzi;
+            // po ok. 3 sekundach (5 x 600ms) uznajemy pobieranie za utracone i kończymy pętlę z jasnym statusem.
+            var missingRowStreak = 0
             while (true) {
                 val query = DownloadManager.Query().setFilterById(record.downloadManagerId)
-                manager.query(query)?.use { cursor ->
-                    if (cursor.moveToFirst()) {
-                        val bytesIdx = cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
-                        val totalIdx = cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
-                        val statusIdx = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
-                        val total = cursor.getLong(totalIdx)
-                        val downloaded = cursor.getLong(bytesIdx)
-                        if (total > 0) record.progress.value = ((downloaded * 100) / total).toInt()
-                        when (cursor.getInt(statusIdx)) {
-                            DownloadManager.STATUS_SUCCESSFUL -> {
-                                record.status.value = "Ukończono"
-                                record.progress.value = 100
-                                val localUriIdx = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
-                                val localUriString = if (localUriIdx >= 0) cursor.getString(localUriIdx) else null
-                                if (localUriString != null) {
-                                    val customFolder = downloadFolderUriFlow.first()
-                                    if (customFolder != null) {
-                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                            copyDownloadToCustomFolder(
-                                                sourceUri = Uri.parse(localUriString),
-                                                fileName = record.fileName,
-                                                mimeType = record.mimeType,
-                                                folderUriString = customFolder
-                                            )
+                val cursor = manager.query(query)
+                if (cursor == null) {
+                    missingRowStreak++
+                } else {
+                    cursor.use {
+                        if (it.moveToFirst()) {
+                            missingRowStreak = 0
+                            val bytesIdx = it.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
+                            val totalIdx = it.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
+                            val statusIdx = it.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                            val total = it.getLong(totalIdx)
+                            val downloaded = it.getLong(bytesIdx)
+                            if (total > 0) {
+                                record.progress.value = ((downloaded * 100) / total).toInt()
+                                record.totalBytes.value = total
+                            }
+                            when (it.getInt(statusIdx)) {
+                                DownloadManager.STATUS_SUCCESSFUL -> {
+                                    record.status.value = "Ukończono"
+                                    record.progress.value = 100
+                                    val localUriIdx = it.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
+                                    val localUriString = if (localUriIdx >= 0) it.getString(localUriIdx) else null
+                                    // NOWE: kanoniczny, "otwieralny" content:// URI do pobranego pliku —
+                                    // potrzebny zarówno dla dialogu "Pobrano — otworzyć?", jak i dla
+                                    // przycisku otwierania bezpośrednio z listy pobranych.
+                                    record.openUri.value = try {
+                                        manager.getUriForDownloadedFile(record.downloadManagerId)
+                                    } catch (e: Exception) {
+                                        localUriString?.let { s -> runCatching { Uri.parse(s) }.getOrNull() }
+                                    }
+                                    // NOWE: pokazuje globalny dialog "Pobrano plik — otworzyć?" (patrz BrowserScreen).
+                                    justCompletedDownload.value = record
+                                    if (localUriString != null) {
+                                        val customFolder = downloadFolderUriFlow.first()
+                                        if (customFolder != null) {
+                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                                copyDownloadToCustomFolder(
+                                                    sourceUri = Uri.parse(localUriString),
+                                                    fileName = record.fileName,
+                                                    mimeType = record.mimeType,
+                                                    folderUriString = customFolder
+                                                )
+                                            }
                                         }
                                     }
+                                    return@launch
                                 }
-                                return@launch
+                                DownloadManager.STATUS_FAILED -> {
+                                    record.status.value = "Przerwano"
+                                    return@launch
+                                }
+                                DownloadManager.STATUS_PAUSED -> record.status.value = "Wstrzymano"
+                                DownloadManager.STATUS_PENDING -> record.status.value = "Oczekiwanie..."
+                                else -> record.status.value = "Pobieranie..."
                             }
-                            DownloadManager.STATUS_FAILED -> {
-                                record.status.value = "Przerwano"
-                                return@launch
-                            }
-                            else -> record.status.value = "Pobieranie..."
+                        } else {
+                            missingRowStreak++
                         }
                     }
                 }
+                if (missingRowStreak >= 5) {
+                    record.status.value = "Nieznany błąd"
+                    return@launch
+                }
                 delay(600)
             }
+        }
+    }
+    // NOWE: otwiera pobrany plik domyślną aplikacją systemową (np. przeglądarką PDF, galerią) na podstawie
+    // zapisanego openUri. Gdy nic nie umie otworzyć tego typu pliku (albo URI jest nieznany), spada do
+    // otwarcia systemowego ekranu "Pobrane pliki", żeby użytkownik i tak trafił w okolice pliku.
+    fun openDownloadedFile(record: DownloadRecord) {
+        val uri = record.openUri.value
+        if (uri == null) {
+            openSystemDownloadsScreen()
+            return
+        }
+        try {
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, record.mimeType?.takeIf { it.isNotBlank() } ?: "*/*")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            app.startActivity(intent)
+        } catch (e: Exception) {
+            openSystemDownloadsScreen()
+        }
+    }
+    private fun openSystemDownloadsScreen() {
+        try {
+            app.startActivity(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e: Exception) {
         }
     }
     private fun copyDownloadToCustomFolder(
@@ -1797,7 +1869,7 @@ fun BrowserScreen(
             )
         }
     }
-    activeTab?.pendingCertError?.value?.let { warning ->
+activeTab?.pendingCertError?.value?.let { warning ->
         AlertDialog(
             onDismissRequest = { },
             icon = { Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
@@ -1851,6 +1923,25 @@ fun BrowserScreen(
                     geoRequest.callback.invoke(geoRequest.origin, false, false)
                     viewModel.pendingGeolocationRequest.value = null
                 }) { Text("Odmów") }
+            }
+        )
+    }
+    // NOWE: globalny dialog "Pobrano plik — otworzyć?" — pokazuje się na dowolnym ekranie (nie tylko
+    // na liście Pobranych), bo pobieranie leci w tle i użytkownik mógł już przejść dalej po stronie.
+    viewModel.justCompletedDownload.value?.let { record ->
+        AlertDialog(
+            onDismissRequest = { viewModel.justCompletedDownload.value = null },
+            icon = { Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+            title = { Text("Pobrano plik") },
+            text = { Text("${record.fileName} — czy chcesz przejść do lokalizacji pliku?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.openDownloadedFile(record)
+                    viewModel.justCompletedDownload.value = null
+                }) { Text("Otwórz") }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.justCompletedDownload.value = null }) { Text("Zamknij") }
             }
         )
     }
@@ -2436,10 +2527,132 @@ private fun HistoryEntryCard(entry: HistoryEntity, onClick: () -> Unit, onDelete
     }
 }
 
+// NOWE: proste opcje sortowania współdzielone przez Zakładki i Pobrane pliki.
+private enum class SimpleSortOption(val label: String) {
+    NEWEST("Najnowsze"), OLDEST("Najstarsze"), NAME_ASC("Nazwa A-Z")
+}
+
+// NOWE: wspólny pasek "szukaj + sortuj" — używany zarówno na ekranie Zakładek, jak i Pobranych plików,
+// żeby oba wyglądały i działały tak samo (styl dopasowany do zaokrąglonego pola z ekranu startowego/paska adresu).
+@Composable
+private fun <T> SearchAndSortRow(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    searchPlaceholder: String,
+    sortOptions: List<Pair<String, T>>,
+    selectedSort: T,
+    onSortSelected: (T) -> Unit
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            Modifier
+                .weight(1f)
+                .height(44.dp)
+                .clip(RoundedCornerShape(22.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.Search,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.width(8.dp))
+            Box(Modifier.weight(1f)) {
+                if (query.isEmpty()) {
+                    Text(
+                        searchPlaceholder,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                }
+                BasicTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    singleLine = true,
+                    textStyle = TextStyle(fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface),
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQueryChange("") }, modifier = Modifier.size(24.dp)) {
+                    Icon(Icons.Default.Close, contentDescription = "Wyczyść", modifier = Modifier.size(14.dp))
+                }
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+        var sortMenuOpen by remember { mutableStateOf(false) }
+        Box {
+            IconButton(
+                onClick = { sortMenuOpen = true },
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Icon(Icons.Default.Sort, contentDescription = "Sortuj")
+            }
+            DropdownMenu(expanded = sortMenuOpen, onDismissRequest = { sortMenuOpen = false }) {
+                sortOptions.forEach { (label, value) ->
+                    DropdownMenuItem(
+                        text = { Text(label) },
+                        trailingIcon = {
+                            if (value == selectedSort) {
+                                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                            }
+                        },
+                        onClick = {
+                            onSortSelected(value)
+                            sortMenuOpen = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+// NOWE: prosty format rozmiaru pliku (B/KB/MB/GB) do wyświetlenia na karcie pobierania.
+private fun formatBytes(bytes: Long): String {
+    if (bytes <= 0) return ""
+    val units = arrayOf("B", "KB", "MB", "GB")
+    var value = bytes.toDouble()
+    var unitIdx = 0
+    while (value >= 1024 && unitIdx < units.lastIndex) {
+        value /= 1024
+        unitIdx++
+    }
+    return if (unitIdx == 0) "${value.toInt()} ${units[unitIdx]}" else String.format(Locale.getDefault(), "%.1f %s", value, units[unitIdx])
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookmarksScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit, onNavigate: (String) -> Unit) {
     val bookmarks by viewModel.bookmarksFlow.collectAsState(initial = emptyList())
+    var query by remember { mutableStateOf("") }
+    var sortOption by remember { mutableStateOf(SimpleSortOption.NEWEST) }
+    // NOWE: filtrowanie po tytule/adresie i proste sortowanie — bookmarks to nowa lista przy każdej emisji
+    // z Flow, więc remember z nią jako kluczem poprawnie przelicza się przy każdej zmianie danych.
+    val filteredSorted = remember(bookmarks, query, sortOption) {
+        val filtered = if (query.isBlank()) bookmarks
+            else bookmarks.filter { it.title.contains(query, ignoreCase = true) || it.url.contains(query, ignoreCase = true) }
+        when (sortOption) {
+            SimpleSortOption.NEWEST -> filtered.sortedByDescending { it.createdAt }
+            SimpleSortOption.OLDEST -> filtered.sortedBy { it.createdAt }
+            SimpleSortOption.NAME_ASC -> filtered.sortedBy { it.title.ifBlank { it.url }.lowercase() }
+        }
+    }
+    val sortOptionsList = remember {
+        SimpleSortOption.values().map { it.label to it }
+    }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -2448,24 +2661,100 @@ fun BookmarksScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Uni
             )
         }
     ) { padding ->
-        if (bookmarks.isEmpty()) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("Brak zakładek", style = MaterialTheme.typography.bodyMedium)
-            }
-            return@Scaffold
-        }
-        LazyColumn(Modifier.padding(padding)) {
-            items(bookmarks, key = { it.id }) { entry ->
-                ListItem(
-                    headlineContent = { Text(entry.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    supportingContent = { Text(entry.url, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    trailingContent = {
-                        TextButton(onClick = { viewModel.removeBookmark(entry.url) }) { Text("Usuń") }
-                    },
-                    modifier = Modifier.clickable { onNavigate(entry.url); onBack() }
+        Column(Modifier.padding(padding).fillMaxSize()) {
+            if (bookmarks.isNotEmpty()) {
+                SearchAndSortRow(
+                    query = query,
+                    onQueryChange = { query = it },
+                    searchPlaceholder = "Szukaj w zakładkach",
+                    sortOptions = sortOptionsList,
+                    selectedSort = sortOption,
+                    onSortSelected = { sortOption = it }
                 )
-                HorizontalDivider()
             }
+            when {
+                bookmarks.isEmpty() -> EmptyStateMessage(icon = Icons.Default.Star, message = "Brak zakładek")
+                filteredSorted.isEmpty() -> EmptyStateMessage(icon = Icons.Default.SearchOff, message = "Brak wyników dla „$query”")
+                else -> LazyColumn(
+                    Modifier.padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(bottom = 12.dp)
+                ) {
+                    items(filteredSorted, key = { it.id }) { entry ->
+                        BookmarkCard(
+                            entry = entry,
+                            onClick = { onNavigate(entry.url); onBack() },
+                            onDelete = { viewModel.removeBookmark(entry.url) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BookmarkCard(entry: BookmarkEntity, onClick: () -> Unit, onDelete: () -> Unit) {
+    val host = remember(entry.url) { runCatching { Uri.parse(entry.url).host }.getOrNull()?.removePrefix("www.") ?: entry.url }
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+    ) {
+        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFF2B807), modifier = Modifier.size(20.dp))
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    entry.title.ifBlank { host },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    host,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(Modifier.width(4.dp))
+            IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = "Usuń zakładkę",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+    }
+}
+
+// NOWE: pusty stan (dla Zakładek i Pobranych) — ikona + komunikat, zamiast gołego tekstu na środku ekranu.
+@Composable
+private fun EmptyStateMessage(icon: androidx.compose.ui.graphics.vector.ImageVector, message: String) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                icon,
+                contentDescription = null,
+                modifier = Modifier.size(40.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            )
+            Spacer(Modifier.height(10.dp))
+            Text(message, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
         }
     }
 }
@@ -2473,6 +2762,25 @@ fun BookmarksScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Uni
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit) {
+    var query by remember { mutableStateOf("") }
+    var sortOption by remember { mutableStateOf(SimpleSortOption.NEWEST) }
+    // POPRAWKA: viewModel.downloads to SnapshotStateList mutowana w miejscu (ta sama referencja przy każdej
+    // zmianie) — owinięcie tego w remember(viewModel.downloads, ...) NIE odświeżałoby się poprawnie przy
+    // dodaniu/zmianie pobrania, bo klucz "wygląda" tak samo. Dlatego liczymy filtrowanie/sortowanie wprost
+    // przy każdej kompozycji (listy pobrań są małe, więc to tanie) — to jest bezpieczniejsze niż pozorne
+    // przyspieszenie przez remember, które tu skutkowałoby "zamrożoną" listą.
+    val filteredSorted = (if (query.isBlank()) viewModel.downloads.toList()
+        else viewModel.downloads.filter { it.fileName.contains(query, ignoreCase = true) })
+        .let { list ->
+            when (sortOption) {
+                SimpleSortOption.NEWEST -> list.sortedByDescending { it.startedAt }
+                SimpleSortOption.OLDEST -> list.sortedBy { it.startedAt }
+                SimpleSortOption.NAME_ASC -> list.sortedBy { it.fileName.lowercase() }
+            }
+        }
+    val sortOptionsList = remember {
+        SimpleSortOption.values().map { it.label to it }
+    }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -2481,26 +2789,109 @@ fun DownloadsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Uni
             )
         }
     ) { padding ->
-        if (viewModel.downloads.isEmpty()) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("Brak pobrań w tej sesji", style = MaterialTheme.typography.bodyMedium)
+        Column(Modifier.padding(padding).fillMaxSize()) {
+            if (viewModel.downloads.isNotEmpty()) {
+                SearchAndSortRow(
+                    query = query,
+                    onQueryChange = { query = it },
+                    searchPlaceholder = "Szukaj pobranych plików",
+                    sortOptions = sortOptionsList,
+                    selectedSort = sortOption,
+                    onSortSelected = { sortOption = it }
+                )
             }
-            return@Scaffold
-        }
-        LazyColumn(Modifier.padding(padding).padding(horizontal = 16.dp)) {
-            items(viewModel.downloads) { record ->
-                val progress by record.progress
-                val status by record.status
-                Column(Modifier.padding(vertical = 10.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(record.fileName, style = MaterialTheme.typography.bodyMedium)
-                        Text(status, style = MaterialTheme.typography.labelSmall)
+            when {
+                viewModel.downloads.isEmpty() -> EmptyStateMessage(icon = Icons.Default.Download, message = "Brak pobrań w tej sesji")
+                filteredSorted.isEmpty() -> EmptyStateMessage(icon = Icons.Default.SearchOff, message = "Brak wyników dla „$query”")
+                else -> LazyColumn(
+                    Modifier.padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(bottom = 12.dp)
+                ) {
+                    items(filteredSorted, key = { it.downloadManagerId }) { record ->
+                        DownloadCard(record = record, onOpen = { viewModel.openDownloadedFile(record) })
                     }
-                    Spacer(Modifier.height(6.dp))
+                }
+            }
+        }
+    }
+}
+
+// NOWE: karta pojedynczego pobrania — ikonka statusu (w trakcie / gotowe / błąd), pasek postępu tylko
+// podczas pobierania, rozmiar pliku gdy znany, i przycisk otwierania pliku gdy pobieranie się skończyło.
+@Composable
+private fun DownloadCard(record: DownloadRecord, onOpen: () -> Unit) {
+    val progress by record.progress
+    val status by record.status
+    val totalBytes by record.totalBytes
+    val openUri by record.openUri
+    val isDone = status == "Ukończono"
+    val isFailed = status == "Przerwano" || status == "Nieznany błąd"
+    val isActive = !isDone && !isFailed
+    ElevatedCard(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(
+                        when {
+                            isFailed -> MaterialTheme.colorScheme.errorContainer
+                            isDone -> MaterialTheme.colorScheme.primaryContainer
+                            else -> MaterialTheme.colorScheme.surfaceVariant
+                        }
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = when {
+                        isFailed -> Icons.Default.ErrorOutline
+                        isDone -> Icons.Default.InsertDriveFile
+                        else -> Icons.Default.Download
+                    },
+                    contentDescription = null,
+                    tint = when {
+                        isFailed -> MaterialTheme.colorScheme.error
+                        isDone -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    record.fileName,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(Modifier.height(4.dp))
+                if (isActive) {
                     LinearProgressIndicator(
                         progress = { progress / 100f },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp))
                     )
+                    Spacer(Modifier.height(3.dp))
+                }
+                Text(
+                    text = buildString {
+                        append(status)
+                        if (isActive) append(" · $progress%")
+                        val sizeLabel = formatBytes(totalBytes)
+                        if (sizeLabel.isNotEmpty()) append(" · $sizeLabel")
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (isFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (isDone && openUri != null) {
+                Spacer(Modifier.width(8.dp))
+                IconButton(onClick = onOpen, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Default.OpenInNew, contentDescription = "Otwórz plik", tint = MaterialTheme.colorScheme.primary)
                 }
             }
         }

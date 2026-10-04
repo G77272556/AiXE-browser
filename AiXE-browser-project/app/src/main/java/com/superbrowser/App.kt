@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
-import android.util.Log
 import android.view.ViewGroup
 import android.webkit.*
 import androidx.activity.ComponentActivity
@@ -12,7 +11,6 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.*
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -101,12 +99,12 @@ class BrowserViewModel : ViewModel() {
     private val _isTabManagerOpen = MutableStateFlow(false)
     val isTabManagerOpen: StateFlow<Boolean> = _isTabManagerOpen.asStateFlow()
 
-    // Statystyki AdBlocka
     var adsBlockedCount by mutableIntStateOf(1420)
     var trackersBlockedCount by mutableIntStateOf(531)
 
     fun getCurrentTab(): BrowserTab? {
-        return _tabs.value.find { it.id == _currentTabId.value }
+        val currentId = _currentTabId.value ?: return _tabs.value.firstOrNull()
+        return _tabs.value.find { it.id == currentId } ?: _tabs.value.firstOrNull()
     }
 
     fun addTab(url: String = "", isIncognito: Boolean = false) {
@@ -127,7 +125,6 @@ class BrowserViewModel : ViewModel() {
             if (currentList.isEmpty()) {
                 addTab()
             } else if (_currentTabId.value == tabId) {
-                // Switch to the previous tab or the first one
                 _currentTabId.value = currentList.getOrNull(index - 1)?.id ?: currentList.first().id
             }
         }
@@ -158,7 +155,9 @@ class BrowserViewModel : ViewModel() {
                 "https://www.google.com/search?q=${Uri.encode(url)}"
             }
         }
-        current.webView?.loadUrl(finalUrl)
+        current.webView?.loadUrl(finalUrl) ?: run {
+            updateTabInfo(current.id) { it.copy(url = finalUrl) }
+        }
     }
 }
 
@@ -177,20 +176,21 @@ fun SuperBrowserApp(viewModel: BrowserViewModel = viewModel()) {
             viewModel.toggleTabManager()
         } else if (currentTab?.webView?.canGoBack() == true) {
             currentTab.webView?.goBack()
-        } else {
-            // Let the system handle back if can't go back in webview
         }
     }
 
     Scaffold(
         bottomBar = {
-            if (!isTabManagerOpen) {
+            if (!isTabManagerOpen && currentTab != null) {
                 BottomAddressBar(
                     currentTab = currentTab,
                     tabCount = tabs.size,
                     onUrlSubmitted = { viewModel.loadUrl(it) },
                     onTabManagerClick = { viewModel.toggleTabManager() },
-                    onHomeClick = { currentTab?.webView?.loadUrl("about:blank"); viewModel.updateTabInfo(currentTabId!!) { it.copy(url = "") } }
+                    onHomeClick = { 
+                        currentTab.webView?.loadUrl("about:blank")
+                        viewModel.updateTabInfo(currentTab.id) { it.copy(url = "") } 
+                    }
                 )
             }
         },
@@ -201,7 +201,6 @@ fun SuperBrowserApp(viewModel: BrowserViewModel = viewModel()) {
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // WebView layer
             if (currentTab != null) {
                 if (currentTab.url.isEmpty() || currentTab.url == "about:blank") {
                     BentoHomeScreen(
@@ -217,7 +216,6 @@ fun SuperBrowserApp(viewModel: BrowserViewModel = viewModel()) {
                 }
             }
 
-            // Tab Manager Overlay
             AnimatedVisibility(
                 visible = isTabManagerOpen,
                 enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
@@ -237,21 +235,20 @@ fun SuperBrowserApp(viewModel: BrowserViewModel = viewModel()) {
 }
 
 // ==========================================
-// UI: BOTTOM ADDRESS BAR (Material 3)
+// UI: BOTTOM ADDRESS BAR
 // ==========================================
 @Composable
 fun BottomAddressBar(
-    currentTab: BrowserTab?,
+    currentTab: BrowserTab,
     tabCount: Int,
     onUrlSubmitted: (String) -> Unit,
     onTabManagerClick: () -> Unit,
     onHomeClick: () -> Unit
 ) {
-    var text by remember(currentTab?.url) { mutableStateOf(currentTab?.url ?: "") }
+    var text by remember(currentTab.id, currentTab.url) { mutableStateOf(currentTab.url) }
     
-    // Linear Progress
     Column {
-        if (currentTab?.isLoading == true) {
+        if (currentTab.isLoading) {
             LinearProgressIndicator(
                 progress = { currentTab.progress },
                 modifier = Modifier.fillMaxWidth().height(2.dp),
@@ -277,7 +274,6 @@ fun BottomAddressBar(
                 
                 Spacer(modifier = Modifier.width(8.dp))
                 
-                // Address Field
                 OutlinedTextField(
                     value = text,
                     onValueChange = { text = it },
@@ -296,7 +292,7 @@ fun BottomAddressBar(
                         unfocusedContainerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
                     ),
                     leadingIcon = {
-                        if (currentTab?.url?.startsWith("https") == true) {
+                        if (currentTab.url.startsWith("https")) {
                             Icon(Icons.Filled.Lock, contentDescription = "Secure", modifier = Modifier.size(18.dp))
                         } else {
                             Icon(Icons.Filled.Search, contentDescription = "Search", modifier = Modifier.size(18.dp))
@@ -306,7 +302,6 @@ fun BottomAddressBar(
                 
                 Spacer(modifier = Modifier.width(8.dp))
                 
-                // Tab Switcher Button
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -353,9 +348,7 @@ fun BentoHomeScreen(viewModel: BrowserViewModel, onUrlClick: (String) -> Unit) {
         
         Spacer(modifier = Modifier.height(32.dp))
         
-        // Bento Grid
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            // Privacy Stats Card
             BentoCard(
                 modifier = Modifier
                     .weight(1f)
@@ -374,7 +367,6 @@ fun BentoHomeScreen(viewModel: BrowserViewModel, onUrlClick: (String) -> Unit) {
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Trackers Card
                 BentoCard(modifier = Modifier.height(82.dp), color = MaterialTheme.colorScheme.tertiaryContainer) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(text = "${viewModel.trackersBlockedCount}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
@@ -382,7 +374,6 @@ fun BentoHomeScreen(viewModel: BrowserViewModel, onUrlClick: (String) -> Unit) {
                     }
                 }
                 
-                // Incognito shortcut
                 BentoCard(
                     modifier = Modifier
                         .height(82.dp)
@@ -519,7 +510,6 @@ fun TabManagerScreen(
                                 Icon(Icons.Filled.Close, "Zamknij")
                             }
                         }
-                        // Mock screenshot area
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -584,7 +574,6 @@ fun BrowserWebView(
                         viewModel.updateTabInfo(tab.id) { 
                             it.copy(url = url ?: "", title = view?.title ?: "Strona", isLoading = false)
                         }
-                        // Inject Cosmetic Hiding (AdBlock Pro)
                         view?.evaluateJavascript(
                             "javascript:(function() { " +
                             "var elements = document.querySelectorAll('.ad-container, .adsbygoogle, [id^=google_ads_iframe]');" +
@@ -602,7 +591,6 @@ fun BrowserWebView(
                         
                         if (blockedDomains.any { url.contains(it) }) {
                             viewModel.adsBlockedCount++
-                            // Return empty response to block
                             return WebResourceResponse("text/plain", "UTF-8", null)
                         }
                         return super.shouldInterceptRequest(view, request)
@@ -625,7 +613,6 @@ fun BrowserWebView(
                     }
                 }
                 
-                // Store reference
                 tab.webView = this
                 
                 if (tab.url.isNotEmpty() && tab.url != "about:blank") {
@@ -634,7 +621,9 @@ fun BrowserWebView(
             }
         },
         update = { webView ->
-            // Update logic if needed when recomposing
+            if (tab.url.isNotEmpty() && tab.url != webView.url && tab.url != "about:blank") {
+                webView.loadUrl(tab.url)
+            }
         },
         modifier = modifier
     )

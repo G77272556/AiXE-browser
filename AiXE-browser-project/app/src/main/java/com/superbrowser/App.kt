@@ -13,16 +13,19 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.rounded.*
@@ -333,7 +336,7 @@ fun BentoHomeScreen(viewModel: BrowserViewModel, onUrlClick: (String) -> Unit) {
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .padding(24.dp)
-            .verticalScroll(androidx.compose.foundation.rememberScrollState())
+            .verticalScroll(rememberScrollState())
     ) {
         Spacer(modifier = Modifier.height(32.dp))
         
@@ -426,7 +429,7 @@ fun BentoHomeScreen(viewModel: BrowserViewModel, onUrlClick: (String) -> Unit) {
                         Icon(icon, contentDescription = url, tint = MaterialTheme.colorScheme.onSecondaryContainer)
                     }
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(url.split(".")[0].capitalize(), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(url.split(".")[0].replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
@@ -447,6 +450,7 @@ fun BentoCard(modifier: Modifier = Modifier, color: Color, content: @Composable 
 // ==========================================
 // UI: TAB MANAGER SCREEN
 // ==========================================
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TabManagerScreen(
     tabs: List<BrowserTab>,
@@ -593,7 +597,6 @@ fun BrowserWebView(
                         view: WebView?,
                         request: WebResourceRequest?
                     ): WebResourceResponse? {
-                        // Bardzo prosty demonstracyjny AdBlock
                         val url = request?.url?.toString() ?: ""
                         val blockedDomains = listOf("ads.google.com", "doubleclick.net", "analytics", "tracker")
                         

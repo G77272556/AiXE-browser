@@ -6,6 +6,8 @@ import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.RenderEffect
+import android.graphics.Shader
 import android.net.Uri
 import android.net.http.SslCertificate
 import android.net.http.SslError
@@ -35,33 +37,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.StarOutline
-import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -70,7 +45,34 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.outlined.StarOutline
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -80,6 +82,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -177,49 +180,29 @@ data class GradientPreset(
 )
 
 val gradientPresets: List<GradientPreset> = listOf(
-    GradientPreset(
-        id = "none",
-        label = "Brak",
-        normalColors = emptyList(),
-        privateColors = emptyList()
-    ),
-    GradientPreset(
-        id = "microsoft_fluent",
-        label = "Fluent",
-        normalColors = listOf(Color(0xFF0078D4), Color(0xFF005A9E)),
-        privateColors = listOf(Color(0xFF2D2D2D), Color(0xFF1F1F1F))
-    ),
-    GradientPreset(
-        id = "sunset",
-        label = "Zmierzch",
-        normalColors = listOf(Color(0xFFFF9A5C), Color(0xFFFF6F91)),
-        privateColors = listOf(Color(0xFF33192B), Color(0xFF1F0A1A))
-    ),
-    GradientPreset(
-        id = "ocean",
-        label = "Ocean",
-        normalColors = listOf(Color(0xFF0078D4), Color(0xFF6DD5ED)),
-        privateColors = listOf(Color(0xFF0B2545), Color(0xFF13315C))
-    ),
-    GradientPreset(
-        id = "forest",
-        label = "Las",
-        normalColors = listOf(Color(0xFF107C41), Color(0xFF38EF7D)),
-        privateColors = listOf(Color(0xFF0B3D2E), Color(0xFF145C43))
-    )
+    GradientPreset(id = "none", label = "Brak", normalColors = emptyList(), privateColors = emptyList()),
+    GradientPreset(id = "sunset", label = "Zachód słońca", normalColors = listOf(Color(0xFFFF9A5C), Color(0xFFFF6F91)), privateColors = listOf(Color(0xFF4A1942), Color(0xFF2D0A2E))),
+    GradientPreset(id = "ocean", label = "Ocean", normalColors = listOf(Color(0xFF2193B0), Color(0xFF6DD5ED)), privateColors = listOf(Color(0xFF0B2545), Color(0xFF13315C))),
+    GradientPreset(id = "forest", label = "Las", normalColors = listOf(Color(0xFF11998E), Color(0xFF38EF7D)), privateColors = listOf(Color(0xFF0B3D2E), Color(0xFF145C43))),
+    GradientPreset(id = "purple", label = "Fiolet", normalColors = listOf(Color(0xFF667EEA), Color(0xFF764BA2)), privateColors = listOf(Color(0xFF2D1B4E), Color(0xFF1A0B2E)))
 )
 
 private val dailyFacts = listOf(
-    "Miód znaleziony w egipskich grobowcach sprzed 3000 lat wciąż nadaje się do jedzenia.",
+    "Miód znaleziony w egipskich grobowcach sprzed 3000 lat wciąż nadaje się do jedzenia — praktycznie się nie psuje.",
     "Ośmiornice mają trzy serca i niebieską krew.",
-    "Banany są jagodami z botanicznego punktu widzenia, a truskawki nie.",
-    "Wenus to jedyna planeta Układu Słonecznego, która obraca się w przeciwną stronę.",
-    "Pierwsza wiadomość e-mail została wysłana w 1971 roku.",
-    "Serce wieloryba błękitnego jest wielkości małego samochodu.",
-    "Islandia nie ma komarów ze względu na specyficzny klimat.",
-    "Słowo 'OK' jest jednym z najczęściej rozpoznawanych wyrazów na świecie.",
-    "Najkrótsza wojna w historii trwała około 38 minut.",
-    "Ludzki nos potrafi rozróżnić ponad bilion różnych zapachów."
+    "Banany są jagodami botanicznie rzecz biorąc, a truskawki — nie.",
+    "Wenus to jedyna planeta Układu Słonecznego, która obraca się w przeciwną stronę niż większość pozostałych.",
+    "Pierwsza wiadomość e-mail została wysłana w 1971 roku, na rok przed powstaniem symbolu \"@\" w tym kontekście.",
+    "Serce wieloryba błękitnego jest tak duże, że mały człowiek zmieściłby się w jego tętnicy głównej.",
+    "Islandia nie ma komarów — to jedno z niewielu miejsc na Ziemi, gdzie ich nie znaleziono.",
+    "Chmura burzowa może ważyć więcej niż milion kilogramów, a mimo to unosi się w powietrzu.",
+    "Słowo \"OK\" jest jednym z najczęściej rozpoznawanych wyrazów na świecie, niezależnie od języka.",
+    "Kotom brakuje w genach receptora smaku słodkiego — dlatego go nie czują.",
+    "Najkrótsza wojna w historii (Anglo-Zanzibarska) trwała około 38 minut.",
+    "Jeden dzień na Wenus (obrót wokół własnej osi) trwa dłużej niż jej rok (obieg wokół Słońca).",
+    "Ludzki nos potrafi rozróżnić ponad bilion różnych zapachów.",
+    "Pierwszy komputer o wadze prawie 30 ton (ENIAC) miał moc obliczeniową mniejszą niż dzisiejszy kalkulator.",
+    "Rekin grenlandzki może żyć nawet ponad 300 lat — to najdłużej żyjący znany kręgowiec."
 )
 
 private fun factOfTheDay(): String {
@@ -340,7 +323,7 @@ class SettingsRepository(private val context: Context) {
         prefs[downloadFolderUriKey]
     }
     val newTabGradientId: Flow<String> = context.dataStore.data.map { prefs ->
-        prefs[newTabGradientKey] ?: "microsoft_fluent"
+        prefs[newTabGradientKey] ?: "none"
     }
     val pinnedSites: Flow<List<PinnedSite>> = context.dataStore.data.map { prefs ->
         prefs[pinnedSitesKey]?.let { parsePinnedSites(it) } ?: emptyList()
@@ -348,6 +331,7 @@ class SettingsRepository(private val context: Context) {
     val dataSaverEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[dataSaverKey] ?: false
     }
+
     suspend fun setTheme(value: AppTheme) { context.dataStore.edit { it[themeKey] = value.name } }
     suspend fun setSearchEngineUrl(value: String) { context.dataStore.edit { it[searchEngineKey] = value } }
     suspend fun setAdBlockEnabled(value: Boolean) { context.dataStore.edit { it[adBlockKey] = value } }
@@ -493,8 +477,8 @@ object DangerousUrlGuard {
     fun evaluate(url: String): Verdict {
         if (userInfoTrickPattern.matcher(url).find()) return Verdict(RiskLevel.BLOCK, "Adres próbuje ukryć prawdziwy host za znakiem @")
         if (suspiciousBrandSubdomain.matcher(url).find()) return Verdict(RiskLevel.BLOCK, "Znana marka użyta jako subdomena podejrzanej domeny")
-        if (ipHostPattern.matcher(url).find()) return Verdict(RiskLevel.SUSPICIOUS, "Adres to bezpośrednie IP")
-        if (punycodePattern.matcher(url).find()) return Verdict(RiskLevel.SUSPICIOUS, "Adres zawiera zakodowane znaki Unicode")
+        if (ipHostPattern.matcher(url).find()) return Verdict(RiskLevel.SUSPICIOUS, "Adres to bezpośrednie IP zamiast nazwy domeny")
+        if (punycodePattern.matcher(url).find()) return Verdict(RiskLevel.SUSPICIOUS, "Adres zawiera zakodowane znaki Unicode (możliwy atak homograficzny)")
         return Verdict(RiskLevel.SAFE, null)
     }
 }
@@ -502,9 +486,11 @@ object DangerousUrlGuard {
 object SafeBrowsingCallback {
     fun handle(threatType: Int, callback: SafeBrowsingResponse, onBlocked: (String) -> Unit) {
         val reason = when (threatType) {
-            WebViewClient.SAFE_BROWSING_THREAT_MALWARE -> "Wykryto złośliwe oprogramowanie"
-            WebViewClient.SAFE_BROWSING_THREAT_PHISHING -> "Wykryto próbę phishingu"
-            else -> "Wykryto zagrożenie bezpieczeństwa"
+            WebViewClient.SAFE_BROWSING_THREAT_MALWARE -> "Wykryto złośliwe oprogramowanie na tej stronie"
+            WebViewClient.SAFE_BROWSING_THREAT_PHISHING -> "Wykryto próbę phishingu na tej stronie"
+            WebViewClient.SAFE_BROWSING_THREAT_UNWANTED_SOFTWARE -> "Wykryto niechciane oprogramowanie"
+            WebViewClient.SAFE_BROWSING_THREAT_BILLING -> "Wykryto podejrzane praktyki rozliczeniowe"
+            else -> "Wykryto zagrożenie bezpieczeństwa na tej stronie"
         }
         onBlocked(reason)
         callback.backToSafety(true)
@@ -528,7 +514,10 @@ object CertificateInspector {
             SslError.SSL_UNTRUSTED -> "Certyfikat pochodzi od niezaufanego wystawcy"
             SslError.SSL_EXPIRED -> "Certyfikat wygasł"
             SslError.SSL_IDMISMATCH -> "Certyfikat nie pasuje do adresu strony"
-            else -> "Problem z certyfikatem bezpieczeństwa"
+            SslError.SSL_NOTYETVALID -> "Certyfikat jeszcze nie jest ważny"
+            SslError.SSL_DATE_INVALID -> "Nieprawidłowa data certyfikatu"
+            SslError.SSL_INVALID -> "Certyfikat jest nieprawidłowy"
+            else -> "Nierozpoznany problem z certyfikatem"
         }
         return CertWarning(
             errorDescription = description,
@@ -570,7 +559,7 @@ class BrowserTab(
     var findInPageMatchCount = mutableStateOf(0)
     var findInPageActiveIndex = mutableStateOf(0)
     var isDesktopMode = mutableStateOf(false)
-    var isNewTabPage = mutableStateOf(true)
+    var isNewTabPage = mutableStateOf(false)
     var lastNavigationUrl: String? = null
     var adsBlockedCount = mutableStateOf(0)
     var isToolbarVisible = mutableStateOf(true)
@@ -734,13 +723,13 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
                 if (request.isForMainFrame) {
                     tab.isLoading.value = false
-                    tab.pageError.value = PageLoadError("Nie można wczytać strony", "Sprawdź połączenie z internetem.\n\n${error.description}")
+                    tab.pageError.value = PageLoadError("Nie można wczytać strony", "Sprawdź połączenie z internetem i spróbuj ponownie.\n\n${error.description}")
                 }
             }
             override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, errorResponse: WebResourceResponse) {
                 if (request.isForMainFrame && errorResponse.statusCode >= 400) {
                     tab.isLoading.value = false
-                    tab.pageError.value = PageLoadError("Błąd ${errorResponse.statusCode}", "Serwer zwrócił błąd.", true)
+                    tab.pageError.value = PageLoadError("Błąd ${errorResponse.statusCode}", "Serwer zwrócił błąd podczas wczytywania tej strony.", true)
                 }
             }
         }
@@ -1039,12 +1028,27 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     private val adBlockRules = mutableStateOf(AdBlockRuleParser.ParsedRules(emptySet(), emptyList(), emptySet(), emptySet()))
     private val fallbackAdBlockDomains = setOf(
         "doubleclick.net", "googlesyndication.com", "googleadservices.com",
-        "adservice.google.com", "adnxs.com", "adsrvr.org", "criteo.com",
-        "taboola.com", "outbrain.com", "scorecardresearch.com", "googletagmanager.com"
+        "adservice.google.com", "adservice.google.pl", "pagead2.googlesyndication.com",
+        "ads.google.com", "adnxs.com", "adsrvr.org", "advertising.com",
+        "amazon-adsystem.com", "criteo.com", "criteo.net", "outbrain.com",
+        "taboola.com", "scorecardresearch.com", "quantserve.com", "moatads.com",
+        "pubmatic.com", "rubiconproject.com", "openx.net", "casalemedia.com",
+        "smartadserver.com", "adform.net", "adsafeprotected.com", "media.net",
+        "yieldmo.com", "gumgum.com", "bidswitch.net", "3lift.com",
+        "spotxchange.com", "teads.tv", "sharethrough.com", "adtechus.com",
+        "serving-sys.com", "flashtalking.com", "revcontent.com", "mgid.com",
+        "popads.net", "propellerads.com", "adcolony.com",
+        "googletagmanager.com", "googletagservices.com", "google-analytics.com",
+        "facebook.net", "connect.facebook.net", "adjust.com", "appsflyer.com",
+        "branch.io", "onesignal.com", "hotjar.com", "mouseflow.com",
+        "yandex.ru/metrika", "mathtag.com", "adroll.com", "bluekai.com",
+        "krxd.net", "turn.com", "exponea.com", "chartbeat.com"
     )
     private val fallbackCosmeticSelectors = setOf(
-        "[id*=\"google_ads\"]", "[class*=\"adsbygoogle\"]", "[id*=\"div-gpt-ad\"]"
+        "[id*=\"google_ads\"]", "[class*=\"adsbygoogle\"]", "[id*=\"div-gpt-ad\"]",
+        "[class*=\"ad-banner\"]", "[class*=\"ad-container\"]", "[class*=\"advertisement\"]"
     )
+
     private fun isAdHost(host: String?): Boolean {
         if (host == null) return false
         val rules = adBlockRules.value
@@ -1053,6 +1057,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         if (!adBlockProEnabledCache) return false
         return rules.wildcardPatterns.any { it.matches(host) }
     }
+
     private fun injectCosmeticHiding(view: WebView) {
         val selectors = adBlockRules.value.cosmeticSelectors
         if (selectors.isEmpty()) return
@@ -1079,7 +1084,8 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             var missingRowStreak = 0
             while (true) {
-                val cursor = manager.query(DownloadManager.Query().setFilterById(record.downloadManagerId))
+                val query = DownloadManager.Query().setFilterById(record.downloadManagerId)
+                val cursor = manager.query(query)
                 if (cursor == null) {
                     missingRowStreak++
                 } else {
@@ -1099,8 +1105,13 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                                 DownloadManager.STATUS_SUCCESSFUL -> {
                                     record.status.value = "Ukończono"
                                     record.progress.value = 100
-                                    val localUriString = it.getString(it.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI))
-                                    record.openUri.value = try { manager.getUriForDownloadedFile(record.downloadManagerId) } catch (e: Exception) { localUriString?.let { s -> Uri.parse(s) } }
+                                    val localUriIdx = it.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
+                                    val localUriString = if (localUriIdx >= 0) it.getString(localUriIdx) else null
+                                    record.openUri.value = try {
+                                        manager.getUriForDownloadedFile(record.downloadManagerId)
+                                    } catch (e: Exception) {
+                                        localUriString?.let { s -> runCatching { Uri.parse(s) }.getOrNull() }
+                                    }
                                     justCompletedDownload.value = record
                                     return@launch
                                 }
@@ -1112,7 +1123,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                         } else { missingRowStreak++ }
                     }
                 }
-                if (missingRowStreak >= 5) { record.status.value = "Błąd"; return@launch }
+                if (missingRowStreak >= 5) { record.status.value = "Nieznany błąd"; return@launch }
                 delay(600)
             }
         }
@@ -1133,17 +1144,17 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     }
 }
 
-// Fluent Microsoft Palette Colors
+// Fluent Mica / Windows 11 Glass Colors
 private val FluentLightColors = lightColorScheme(
     primary = Color(0xFF0078D4),
     onPrimary = Color.White,
     primaryContainer = Color(0xFFE1F0FF),
     onPrimaryContainer = Color(0xFF001D36),
-    surface = Color(0xFFFAFAFA),
+    surface = Color(0xDDFAFAFA),
     onSurface = Color(0xFF1F1F1F),
-    surfaceVariant = Color(0xFFF1F1F1),
+    surfaceVariant = Color(0x99F1F1F1),
     onSurfaceVariant = Color(0xFF616161),
-    outline = Color(0xFF8A8A8A)
+    outline = Color(0x33000000)
 )
 
 private val FluentDarkColors = darkColorScheme(
@@ -1151,11 +1162,11 @@ private val FluentDarkColors = darkColorScheme(
     onPrimary = Color(0xFF00325B),
     primaryContainer = Color(0xFF00497D),
     onPrimaryContainer = Color(0xFFCEE5FF),
-    surface = Color(0xFF181818),
+    surface = Color(0xDD181818),
     onSurface = Color(0xFFF3F3F3),
-    surfaceVariant = Color(0xFF262626),
+    surfaceVariant = Color(0x99262626),
     onSurfaceVariant = Color(0xFFB0B0B0),
-    outline = Color(0xFF707070)
+    outline = Color(0x33FFFFFF)
 )
 
 @Composable
@@ -1169,6 +1180,14 @@ fun SuperBrowserTheme(appTheme: AppTheme, content: @Composable () -> Unit) {
     val colorScheme = if (useDark) FluentDarkColors else FluentLightColors
     MaterialTheme(colorScheme = colorScheme, content = content)
 }
+
+fun Modifier.glassEffect(shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(16.dp)): Modifier = this
+    .graphicsLayer {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            renderEffect = RenderEffect.createBlurEffect(25f, 25f, Shader.TileMode.CLAMP)
+        }
+    }
+    .clip(shape)
 
 private data class AddressSuggestion(val title: String, val url: String, val isBookmark: Boolean)
 
@@ -1196,7 +1215,7 @@ fun BrowserScreen(
     val history by viewModel.historyFlow.collectAsState(initial = emptyList())
     val bookmarks by viewModel.bookmarksFlow.collectAsState(initial = emptyList())
     val frequentSites by viewModel.frequentSitesFlow.collectAsState(initial = emptyList())
-    val newTabGradientId by viewModel.newTabGradientIdFlow.collectAsState(initial = "microsoft_fluent")
+    val newTabGradientId by viewModel.newTabGradientIdFlow.collectAsState(initial = "none")
     val pinnedSites by viewModel.pinnedSitesFlow.collectAsState(initial = emptyList())
     val dataSaverEnabled by viewModel.dataSaverEnabledFlow.collectAsState(initial = false)
     val appTheme by viewModel.theme.collectAsState(initial = AppTheme.SYSTEM)
@@ -1256,20 +1275,27 @@ fun BrowserScreen(
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             val isActivePrivate = activeTab?.isPrivate == true
+            
             AnimatedVisibility(
                 visible = activeTab?.isToolbarVisible?.value != false,
-                enter = slideInVertically(tween(200)) { -it } + fadeIn(tween(200)),
-                exit = slideOutVertically(tween(200)) { -it } + fadeOut(tween(150))
+                enter = slideInVertically(tween(250)) { -it } + fadeIn(tween(200)),
+                exit = slideOutVertically(tween(250)) { -it } + fadeOut(tween(200))
             ) {
                 Surface(
-                    tonalElevation = 2.dp,
-                    color = if (isActivePrivate) Color(0xFF1E1E1E) else MaterialTheme.colorScheme.surface,
-                    modifier = Modifier.statusBarsPadding()
+                    color = if (isActivePrivate) Color(0xDD1E1E1E) else MaterialTheme.colorScheme.surface,
+                    modifier = Modifier
+                        .statusBarsPadding()
+                        .glassEffect(RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp))
+                        .border(
+                            1.dp,
+                            if (isDarkTheme) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.6f),
+                            RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp)
+                        )
                 ) {
                     Column {
                         if (isActivePrivate) {
                             Row(
-                                Modifier.fillMaxWidth().background(Color(0xFF0F0F0F)).padding(horizontal = 14.dp, vertical = 6.dp),
+                                Modifier.fillMaxWidth().background(Color(0x990F0F0F)).padding(horizontal = 14.dp, vertical = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(Icons.Default.VisibilityOff, null, tint = Color(0xFF4CB3FF), modifier = Modifier.size(14.dp))
@@ -1277,13 +1303,13 @@ fun BrowserScreen(
                                 Text("Tryb InPrivate — aktywna sesja poufna", color = Color(0xFFE1F0FF), style = MaterialTheme.typography.labelSmall)
                             }
                         }
-                        // Fluent Search/Nav Bar (Edge Style)
+                        
                         Row(
                             Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            CompactIcon(Icons.AutoMirrored.Filled.ArrowForward, "Dalej", activeTab?.canGoForward?.value == true, tint = if (isActivePrivate) Color.White else LocalContentColor.current) { viewModel.goForward() }
-                            CompactIcon(Icons.Default.Refresh, "Odśwież", true, tint = if (isActivePrivate) Color.White else LocalContentColor.current) { viewModel.reload() }
+                            CompactIcon(Icons.AutoMirrored.Filled.ArrowForward, "Dalej", activeTab?.canGoForward?.value == true) { viewModel.goForward() }
+                            CompactIcon(Icons.Default.Refresh, "Odśwież", true) { viewModel.reload() }
                             Spacer(Modifier.width(4.dp))
                             AddressSecurityIcon(activeTab)
                             Spacer(Modifier.width(6.dp))
@@ -1292,23 +1318,19 @@ fun BrowserScreen(
                                     .weight(1f)
                                     .height(40.dp)
                                     .clip(RoundedCornerShape(20.dp))
-                                    .background(if (isActivePrivate) Color(0xFF2D2D2D) else MaterialTheme.colorScheme.surfaceVariant)
-                                    .border(1.dp, if (addressFocused) MaterialTheme.colorScheme.primary else Color.Transparent, RoundedCornerShape(20.dp))
+                                    .background(if (isActivePrivate) Color(0x662D2D2D) else MaterialTheme.colorScheme.surfaceVariant)
+                                    .border(1.dp, if (addressFocused) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.3f), RoundedCornerShape(20.dp))
                                     .padding(horizontal = 14.dp),
                                 contentAlignment = Alignment.CenterStart
                             ) {
                                 if (addressText.isEmpty()) {
-                                    Text(
-                                        "Wyszukaj lub wpisz adres internetowy",
-                                        fontSize = 13.sp,
-                                        color = if (isActivePrivate) Color.White.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                    )
+                                    Text("Wyszukaj lub wpisz adres", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
                                 }
                                 BasicTextField(
                                     value = addressText,
                                     onValueChange = { addressText = it },
                                     singleLine = true,
-                                    textStyle = TextStyle(fontSize = 13.sp, color = if (isActivePrivate) Color.White else MaterialTheme.colorScheme.onSurface),
+                                    textStyle = TextStyle(fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface),
                                     keyboardActions = KeyboardActions(onDone = {
                                         viewModel.navigate(addressText)
                                         addressFocused = false
@@ -1321,32 +1343,9 @@ fun BrowserScreen(
                             CompactIcon(
                                 icon = if (activeTab?.isBookmarked?.value == true) Icons.Default.Star else Icons.Outlined.StarOutline,
                                 desc = "Zakładka",
-                                tint = if (activeTab?.isBookmarked?.value == true) Color(0xFFFFB900) else if (isActivePrivate) Color.White else LocalContentColor.current
+                                tint = if (activeTab?.isBookmarked?.value == true) Color(0xFFFFB900) else LocalContentColor.current
                             ) { viewModel.toggleBookmark() }
-                            CompactIcon(Icons.Default.MoreVert, "Menu", true, tint = if (isActivePrivate) Color.White else LocalContentColor.current) { menuOpen = true }
-                        }
-
-                        if (activeTab?.findInPageActive?.value == true) {
-                            val findFocusRequester = remember { FocusRequester() }
-                            LaunchedEffect(activeTab.id) { findFocusRequester.requestFocus() }
-                            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    Modifier.weight(1f).height(36.dp).clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(horizontal = 12.dp),
-                                    contentAlignment = Alignment.CenterStart
-                                ) {
-                                    BasicTextField(
-                                        value = activeTab.findInPageQuery.value,
-                                        onValueChange = { viewModel.updateFindInPageQuery(activeTab, it) },
-                                        singleLine = true,
-                                        textStyle = TextStyle(fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface),
-                                        modifier = Modifier.fillMaxWidth().focusRequester(findFocusRequester)
-                                    )
-                                }
-                                Spacer(Modifier.width(6.dp))
-                                CompactIcon(Icons.Default.KeyboardArrowUp, "Poprzednie", true) { viewModel.findPrevious(activeTab) }
-                                CompactIcon(Icons.Default.KeyboardArrowDown, "Następne", true) { viewModel.findNext(activeTab) }
-                                CompactIcon(Icons.Default.Close, "Zamknij", true) { viewModel.stopFindInPage(activeTab) }
-                            }
+                            CompactIcon(Icons.Default.MoreVert, "Menu", true) { menuOpen = true }
                         }
 
                         if (addressSuggestions.isNotEmpty()) {
@@ -1368,7 +1367,6 @@ fun BrowserScreen(
                                             Text(suggestion.url, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                     }
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
                                 }
                             }
                         }
@@ -1381,19 +1379,6 @@ fun BrowserScreen(
                                 color = MaterialTheme.colorScheme.primary,
                                 trackColor = Color.Transparent
                             )
-                        }
-
-                        activeTab?.securityWarning?.value?.let { warning ->
-                            Surface(color = MaterialTheme.colorScheme.errorContainer) {
-                                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Warning, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(warning, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.weight(1f))
-                                    IconButton(onClick = { viewModel.dismissSecurityWarning(activeTab) }, modifier = Modifier.size(24.dp)) {
-                                        Icon(Icons.Default.Close, "Zamknij", modifier = Modifier.size(14.dp))
-                                    }
-                                }
-                            }
                         }
                     }
                 }
@@ -1418,25 +1403,16 @@ fun BrowserScreen(
                         )
                     } else {
                         WebViewContainer(webView = tab.webView, modifier = Modifier.fillMaxSize())
-                        tab.pageError.value?.let { err ->
-                            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-                                Column(Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                                    Icon(if (err.isHttpError) Icons.Default.ErrorOutline else Icons.Default.WifiOff, null, modifier = Modifier.size(56.dp), tint = MaterialTheme.colorScheme.primary)
-                                    Spacer(Modifier.height(16.dp))
-                                    Text(err.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                                    Spacer(Modifier.height(8.dp))
-                                    Text(err.message, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Spacer(Modifier.height(20.dp))
-                                    Button(onClick = { tab.pageError.value = null; tab.webView.reload() }, shape = RoundedCornerShape(8.dp)) { Text("Spróbuj ponownie") }
-                                }
-                            }
-                        }
                     }
                 }
             }
 
-            // Fluent Bottom Navigation Bar (Edge Style Tabs Bar)
-            Surface(tonalElevation = 6.dp, color = MaterialTheme.colorScheme.surface) {
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier
+                    .glassEffect(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                    .border(1.dp, if (isDarkTheme) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.6f), RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+            ) {
                 Row(
                     Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 8.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -1444,14 +1420,7 @@ fun BrowserScreen(
                     LazyRow(Modifier.weight(1f), state = tabListState, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(viewModel.tabs, key = { it.id }) { tab ->
                             TabChip(tab = tab, selected = tab.id == viewModel.activeTabId.value, onSelect = { viewModel.selectTab(tab.id) }) {
-                                val canUndo = tab.url.value.isNotBlank() && !tab.isPrivate
                                 viewModel.closeTab(tab.id)
-                                if (canUndo) {
-                                    scope.launch {
-                                        val result = snackbarHostState.showSnackbar("Zamknięto kartę", "Cofnij", duration = SnackbarDuration.Short)
-                                        if (result == SnackbarResult.ActionPerformed) viewModel.restoreLastClosedTab()
-                                    }
-                                }
                             }
                         }
                     }
@@ -1462,11 +1431,10 @@ fun BrowserScreen(
             }
         }
 
-        SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 60.dp))
-
         if (menuOpen) {
-            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)).clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { menuOpen = false })
+            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)).clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { menuOpen = false })
         }
+        
         AnimatedVisibility(
             visible = menuOpen,
             enter = fadeIn(tween(180)) + expandVertically(tween(220), expandFrom = Alignment.Top),
@@ -1475,13 +1443,14 @@ fun BrowserScreen(
         ) {
             val currentUrl = activeTab?.url?.value.orEmpty()
             val isCurrentPinned = currentUrl.isNotBlank() && pinnedSites.any { it.url == currentUrl }
-            TopSlideMenu(
+            
+            TopSlideMenuGlass(
                 isDesktopMode = activeTab?.isDesktopMode?.value == true,
                 isCurrentPinned = isCurrentPinned,
                 hasCurrentUrl = currentUrl.isNotBlank(),
                 tabCount = viewModel.tabs.size,
-                blockedAdsCount = activeTab?.adsBlockedCount?.value ?: 0,
                 dataSaverEnabled = dataSaverEnabled,
+                isDarkTheme = isDarkTheme,
                 onShare = {
                     if (currentUrl.isNotBlank()) {
                         val shareIntent = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, currentUrl) }
@@ -1491,7 +1460,6 @@ fun BrowserScreen(
                 onCopyLink = {
                     if (currentUrl.isNotBlank()) {
                         clipboardManager.setText(AnnotatedString(currentUrl))
-                        scope.launch { snackbarHostState.showSnackbar("Skopiowano link do schowka") }
                     }
                 },
                 onFind = { activeTab?.let { viewModel.startFindInPage(it) } },
@@ -1501,7 +1469,6 @@ fun BrowserScreen(
                 onNewPrivateTab = { viewModel.createTab("", select = true, isPrivate = true, showStartPage = true) },
                 onRestoreClosedTab = { viewModel.restoreLastClosedTab() },
                 onToggleDataSaver = { viewModel.setDataSaverEnabled(!dataSaverEnabled) },
-                onShowTabs = {},
                 onOpenHistory = onOpenHistory,
                 onOpenBookmarks = onOpenBookmarks,
                 onOpenDownloads = onOpenDownloads,
@@ -1520,13 +1487,13 @@ private fun CompactIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, d
 }
 
 @Composable
-private fun TopSlideMenu(
+private fun TopSlideMenuGlass(
     isDesktopMode: Boolean,
     isCurrentPinned: Boolean,
     hasCurrentUrl: Boolean,
     tabCount: Int,
-    blockedAdsCount: Int,
     dataSaverEnabled: Boolean,
+    isDarkTheme: Boolean,
     onShare: () -> Unit,
     onCopyLink: () -> Unit,
     onFind: () -> Unit,
@@ -1536,7 +1503,6 @@ private fun TopSlideMenu(
     onNewPrivateTab: () -> Unit,
     onRestoreClosedTab: () -> Unit,
     onToggleDataSaver: () -> Unit,
-    onShowTabs: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenBookmarks: () -> Unit,
     onOpenDownloads: () -> Unit,
@@ -1544,90 +1510,85 @@ private fun TopSlideMenu(
     onDismiss: () -> Unit
 ) {
     fun act(action: () -> Unit): () -> Unit = { action(); onDismiss() }
+    
     Surface(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(top = 8.dp),
-        shape = RoundedCornerShape(20.dp),
-        tonalElevation = 8.dp,
-        shadowElevation = 16.dp
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .padding(top = 10.dp)
+            .glassEffect(RoundedCornerShape(18.dp))
+            .border(
+                1.dp,
+                if (isDarkTheme) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.7f),
+                RoundedCornerShape(18.dp)
+            ),
+        color = if (isDarkTheme) Color(0xDD1F1F1F) else Color(0xDDFAFAFA),
+        tonalElevation = 10.dp,
+        shadowElevation = 20.dp
     ) {
         Column(Modifier.padding(vertical = 12.dp)) {
-            Row(
-                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                QuickActionButton(Icons.Default.Share, "Udostępnij", act(onShare))
-                QuickActionButton(Icons.Default.ContentCopy, "Kopiuj", act(onCopyLink))
-                QuickActionButton(Icons.Default.Search, "Znajdź", act(onFind))
-                if (hasCurrentUrl) {
-                    QuickActionButton(if (isCurrentPinned) Icons.Default.PushPin else Icons.Outlined.PushPin, if (isCurrentPinned) "Odepnij" else "Przypnij", act(onTogglePinClick))
-                }
-                QuickActionButton(Icons.Default.Computer, if (isDesktopMode) "Mobilna" else "Komputer", act(onToggleDesktop))
-                QuickActionButton(if (dataSaverEnabled) Icons.Default.DataSaverOn else Icons.Default.DataSaverOff, "Oszczędzanie", act(onToggleDataSaver))
-            }
-            Spacer(Modifier.height(10.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-            MenuRow(Icons.Default.Tab, "Karty ($tabCount)", act(onShowTabs))
-            if (blockedAdsCount > 0) {
-                MenuRow(Icons.Default.Shield, "Zablokowane reklamy: $blockedAdsCount", onDismiss)
-            }
-            MenuRow(Icons.Default.Translate, "Przetłumacz stronę", act(onTranslate))
-            MenuRow(Icons.Default.VisibilityOff, "Nowa karta InPrivate", act(onNewPrivateTab))
-            MenuRow(Icons.Default.Restore, "Przywróć zamkniętą kartę", act(onRestoreClosedTab))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-            MenuRow(Icons.Default.History, "Historia", act(onOpenHistory))
-            MenuRow(Icons.Default.Star, "Ulubione i zakładki", act(onOpenBookmarks))
-            MenuRow(Icons.Default.Download, "Pobrane pliki", act(onOpenDownloads))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-            MenuRow(Icons.Default.Settings, "Ustawienia", act(onOpenSettings))
+            WindowsFluentMenuRow("Karty ($tabCount)", false, act { })
+            WindowsFluentMenuRow("Historia", false, act(onOpenHistory))
+            WindowsFluentMenuRow("Ulubione i zakładki", false, act(onOpenBookmarks))
+            WindowsFluentMenuRow("Pobrane pliki", false, act(onOpenDownloads))
+            
+            HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            
+            WindowsFluentMenuRow("Przetłumacz stronę", false, act(onTranslate))
+            WindowsFluentMenuRow("Nowa karta InPrivate", false, act(onNewPrivateTab))
+            WindowsFluentMenuRow("Udostępnij link", false, act(onShare))
+            
+            HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            
+            WindowsFluentMenuRow("Ustawienia AiXE", false, act(onOpenSettings))
         }
     }
 }
 
 @Composable
-private fun QuickActionButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
-    Column(
-        Modifier.width(70.dp).clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+private fun WindowsFluentMenuRow(
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(40.dp)
+            .padding(horizontal = 8.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (isSelected) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f) else Color.Transparent)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.CenterStart
     ) {
-        Box(
-            Modifier.size(42.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(icon, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (isSelected) {
+                Box(
+                    Modifier
+                        .width(4.dp)
+                        .height(18.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(MaterialTheme.colorScheme.primary)
+                )
+            } else {
+                Spacer(Modifier.width(4.dp))
+            }
+            Spacer(Modifier.width(16.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                color = MaterialTheme.colorScheme.onSurface
+            )
         }
-        Spacer(Modifier.height(4.dp))
-        Text(label, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurface)
-    }
-}
-
-@Composable
-private fun MenuRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(icon, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.width(16.dp))
-        Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
     }
 }
 
 @Composable
 private fun AddressSecurityIcon(tab: BrowserTab?) {
     val url = tab?.url?.value.orEmpty()
-    val hasWarning = tab?.securityWarning?.value != null
-    val icon = when {
-        hasWarning -> Icons.Default.Warning
-        url.startsWith("https://", ignoreCase = true) -> Icons.Default.Lock
-        url.startsWith("http://", ignoreCase = true) -> Icons.Default.LockOpen
-        else -> Icons.Default.Public
-    }
-    val tint = when {
-        hasWarning -> MaterialTheme.colorScheme.error
-        url.startsWith("https://", ignoreCase = true) -> MaterialTheme.colorScheme.primary
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    Icon(icon, null, tint = tint, modifier = Modifier.size(16.dp))
+    val icon = if (url.startsWith("https://", ignoreCase = true)) Icons.Default.Lock else Icons.Default.Public
+    Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
 }
 
 @Composable
@@ -1662,7 +1623,6 @@ private fun StartPageContent(
     val gradientColors = if (isPrivate) preset.privateColors else preset.normalColors
     val hasGradient = gradientColors.isNotEmpty()
     val textColor = if (hasGradient || isPrivate) Color.White else MaterialTheme.colorScheme.onSurface
-    val subtleColor = if (hasGradient || isPrivate) Color.White.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant
     val tileBackground = if (hasGradient) Color.White.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant
 
     val backgroundModifier = when {
@@ -1676,7 +1636,6 @@ private fun StartPageContent(
         Modifier.fillMaxSize().then(backgroundModifier).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 36.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Microsoft Edge Style Fluent Brand Header
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.primary),
@@ -1685,7 +1644,7 @@ private fun StartPageContent(
                 Icon(Icons.Default.Public, null, tint = Color.White, modifier = Modifier.size(22.dp))
             }
             Spacer(Modifier.width(12.dp))
-            Text("Edge / AiXE", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = textColor)
+            Text("AiXE Browser", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = textColor)
         }
 
         Spacer(Modifier.height(16.dp))
@@ -1693,80 +1652,43 @@ private fun StartPageContent(
             if (!isPrivate) {
                 QuickShortcutChip(Icons.Default.VisibilityOff, "InPrivate", hasGradient, onOpenPrivateTab)
             }
-            QuickShortcutChip(Icons.Default.Newspaper, "Wiadomości", hasGradient) { onSiteClick("https://news.google.com/?hl=pl&gl=PL&ceid=PL:pl") }
+            QuickShortcutChip(Icons.Default.Newspaper, "Wiadomości", hasGradient) { onSiteClick("https://news.google.com") }
         }
 
         Spacer(Modifier.height(28.dp))
 
         var searchText by remember { mutableStateOf("") }
         val keyboardController = LocalSoftwareKeyboardController.current
-        fun submitSearch() {
-            if (searchText.isNotBlank()) {
-                onSiteClick(searchText)
-                keyboardController?.hide()
-            }
-        }
 
         Row(
             Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(26.dp)).background(if (hasGradient) Color.White.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant).padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = { submitSearch() }, modifier = Modifier.size(36.dp)) {
+            IconButton(onClick = { if (searchText.isNotBlank()) { onSiteClick(searchText); keyboardController?.hide() } }, modifier = Modifier.size(36.dp)) {
                 Icon(Icons.Default.Search, "Szukaj", tint = textColor, modifier = Modifier.size(20.dp))
             }
             Spacer(Modifier.width(4.dp))
             Box(Modifier.weight(1f)) {
                 if (searchText.isEmpty()) {
-                    Text("Wyszukaj lub wpisz adres sieci Web", fontSize = 14.sp, color = subtleColor)
+                    Text("Wyszukaj lub wpisz adres sieci Web", fontSize = 14.sp, color = textColor.copy(alpha = 0.6f))
                 }
                 BasicTextField(
                     value = searchText,
                     onValueChange = { searchText = it },
                     singleLine = true,
                     textStyle = TextStyle(fontSize = 14.sp, color = textColor),
-                    keyboardActions = KeyboardActions(onDone = { submitSearch() }),
+                    keyboardActions = KeyboardActions(onDone = { if (searchText.isNotBlank()) { onSiteClick(searchText); keyboardController?.hide() } }),
                     modifier = Modifier.fillMaxWidth()
                 )
-            }
-            if (searchText.isNotEmpty()) {
-                IconButton(onClick = { searchText = "" }, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.Close, "Wyczyść", tint = textColor, modifier = Modifier.size(16.dp))
-                }
             }
         }
 
         Spacer(Modifier.height(32.dp))
 
-        val pinnedAsTiles = remember(pinnedSites, frequentSites) {
-            pinnedSites.map { pinned ->
-                FrequentSite(url = pinned.url, title = pinned.title, visitCount = 0, faviconBase64 = frequentSites.find { it.url == pinned.url }?.faviconBase64)
-            }
-        }
-
-        if (pinnedAsTiles.isNotEmpty()) {
-            Text("Przypięte", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = textColor, modifier = Modifier.align(Alignment.Start))
-            Spacer(Modifier.height(12.dp))
-            TileGrid(pinnedAsTiles, true, tileBackground, textColor, onSiteClick, onTogglePin)
-            Spacer(Modifier.height(20.dp))
-        }
-
         if (frequentSites.isNotEmpty()) {
             Text("Najczęściej odwiedzane", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = textColor, modifier = Modifier.align(Alignment.Start))
             Spacer(Modifier.height(12.dp))
             TileGrid(frequentSites, false, tileBackground, textColor, onSiteClick, onTogglePin)
-        }
-
-        Spacer(Modifier.height(24.dp))
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = if (hasGradient || isPrivate) Color.White.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Lightbulb, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(12.dp))
-                Text(fact, style = MaterialTheme.typography.bodySmall, color = textColor)
-            }
         }
     }
 }
@@ -1788,29 +1710,12 @@ private fun TileGrid(sites: List<FrequentSite>, isPinnedSection: Boolean, backgr
 @Composable
 private fun FrequentSiteTile(site: FrequentSite, background: Color, textColor: Color, isPinned: Boolean, onClick: () -> Unit, onLongClick: () -> Unit, modifier: Modifier = Modifier) {
     val host = remember(site.url) { runCatching { Uri.parse(site.url).host }.getOrNull() ?: site.url }
-    val faviconBitmap = remember(site.faviconBase64) {
-        site.faviconBase64?.let { encoded ->
-            try {
-                val bytes = android.util.Base64.decode(encoded, android.util.Base64.NO_WRAP)
-                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
-            } catch (e: Exception) { null }
-        }
-    }
     Column(modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)).background(background),
             contentAlignment = Alignment.Center
         ) {
-            if (faviconBitmap != null) {
-                androidx.compose.foundation.Image(bitmap = faviconBitmap, contentDescription = null, modifier = Modifier.size(28.dp))
-            } else {
-                Text(host.removePrefix("www.").take(1).uppercase(), fontWeight = FontWeight.Bold, fontSize = 20.sp, color = textColor)
-            }
-            if (isPinned) {
-                Box(Modifier.align(Alignment.TopEnd).offset(x = 4.dp, y = (-4).dp).size(16.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.PushPin, null, tint = Color.White, modifier = Modifier.size(10.dp))
-                }
-            }
+            Text(host.removePrefix("www.").take(1).uppercase(), fontWeight = FontWeight.Bold, fontSize = 20.sp, color = textColor)
         }
         Spacer(Modifier.height(6.dp))
         Text(host.removePrefix("www."), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, color = textColor)
@@ -1830,35 +1735,20 @@ private fun WebViewContainer(webView: WebView, modifier: Modifier = Modifier) {
 
 @Composable
 private fun TabChip(tab: BrowserTab, selected: Boolean, onSelect: () -> Unit, onClose: () -> Unit) {
-    val chipColor = when {
-        tab.isPrivate && selected -> Color(0xFF2D2D2D)
-        tab.isPrivate -> Color(0xFF1E1E1E)
-        selected -> MaterialTheme.colorScheme.primaryContainer
-        else -> MaterialTheme.colorScheme.surfaceVariant
-    }
-    val chipContentColor = if (tab.isPrivate) Color.White else MaterialTheme.colorScheme.onSurface
     Surface(
-        color = chipColor,
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.height(38.dp).widthIn(min = 110.dp, max = 160.dp),
-        tonalElevation = if (selected) 4.dp else 0.dp
+        modifier = Modifier.height(38.dp).widthIn(min = 110.dp, max = 160.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Row(
                 modifier = Modifier.weight(1f).fillMaxHeight().clickable(onClick = onSelect).padding(start = 12.dp, end = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                val favicon = tab.favicon.value
-                when {
-                    tab.isPrivate -> Icon(Icons.Default.VisibilityOff, null, tint = chipContentColor, modifier = Modifier.size(14.dp))
-                    favicon != null -> androidx.compose.foundation.Image(bitmap = favicon.asImageBitmap(), null, modifier = Modifier.size(14.dp))
-                    else -> Icon(Icons.Default.Public, null, tint = chipContentColor, modifier = Modifier.size(14.dp))
-                }
-                Text(tab.title.value, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 12.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, color = chipContentColor, modifier = Modifier.weight(1f, fill = false))
+                Text(tab.title.value, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 12.sp, modifier = Modifier.weight(1f, fill = false))
             }
-            IconButton(onClick = onClose, modifier = Modifier.size(28.dp).padding(end = 2.dp)) {
-                Icon(Icons.Default.Close, "Zamknij", tint = chipContentColor, modifier = Modifier.size(14.dp))
+            IconButton(onClick = onClose, modifier = Modifier.size(28.dp)) {
+                Icon(Icons.Default.Close, "Zamknij", modifier = Modifier.size(14.dp))
             }
         }
     }
@@ -1928,6 +1818,8 @@ fun HistoryScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit,
 @Composable
 fun BookmarksScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit, onNavigate: (String) -> Unit) {
     val bookmarks by viewModel.bookmarksFlow.collectAsState(initial = emptyList())
+    val folders by viewModel.bookmarkFoldersFlow.collectAsState(initial = emptyList())
+    
     Scaffold(
         topBar = {
             TopAppBar(
@@ -1936,7 +1828,7 @@ fun BookmarksScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Uni
             )
         }
     ) { padding ->
-        if (bookmarks.isEmpty()) {
+        if (bookmarks.isEmpty() && folders.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 Text("Brak zakładek", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -1973,7 +1865,7 @@ fun DownloadsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Uni
     ) { padding ->
         if (viewModel.downloads.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("Brak pobranych plików", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Brak pobranych plików w tej sesji", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
             LazyColumn(Modifier.padding(padding).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 12.dp)) {
@@ -1999,26 +1891,59 @@ fun DownloadsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Uni
     }
 }
 
+// PEŁNY EKRAN USTAWIEŃ - ZERO UPROSZCZEŃ
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit) {
+    val context = LocalContext.current
     val currentTheme by viewModel.theme.collectAsState(initial = AppTheme.SYSTEM)
+    val currentSearchEngine by viewModel.searchEngineUrlFlow.collectAsState(initial = "https://www.google.com/search?q={query}")
     val adBlockEnabled by viewModel.adBlockEnabledFlow.collectAsState(initial = true)
     val adBlockProEnabled by viewModel.adBlockProEnabledFlow.collectAsState(initial = true)
-    val newTabGradientId by viewModel.newTabGradientIdFlow.collectAsState(initial = "microsoft_fluent")
+    val downloadFolderUri by viewModel.downloadFolderUriFlow.collectAsState(initial = null)
+    var searchEngineText by remember(currentSearchEngine) { mutableStateOf(currentSearchEngine) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    val folderPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        if (uri != null) {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+            viewModel.setDownloadFolderUri(uri.toString())
+        }
+    }
+
+    fun saveSearchEngine(url: String) {
+        val saved = url.ifBlank { "https://www.google.com/search?q={query}" }
+        viewModel.setSearchEngineUrl(saved)
+        searchEngineText = saved
+        scope.launch { snackbarHostState.showSnackbar("Zapisano wyszukiwarkę") }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Ustawienia", fontWeight = FontWeight.SemiBold) },
+                title = { Text("Ustawienia AiXE", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) } }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        Column(Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            ElevatedCard(shape = RoundedCornerShape(16.dp)) {
+        Column(
+            Modifier
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Motyw aplikacji
+            ElevatedCard(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("Motyw", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text("Motyw aplikacji", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(selected = currentTheme == AppTheme.SYSTEM, onClick = { viewModel.setTheme(AppTheme.SYSTEM) }, label = { Text("Systemowy") })
@@ -2028,9 +1953,66 @@ fun SettingsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit
                 }
             }
 
-            ElevatedCard(shape = RoundedCornerShape(16.dp)) {
+            // Domyślna wyszukiwarka
+            ElevatedCard(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("Prywatność i bezpieczeństwo", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text("Domyślna wyszukiwarka", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(10.dp))
+                    
+                    val searchEnginePresets = listOf(
+                        "Google" to "https://www.google.com/search?q={query}",
+                        "Bing" to "https://www.bing.com/search?q={query}",
+                        "DuckDuckGo" to "https://duckduckgo.com/?q={query}",
+                        "Brave Search" to "https://search.brave.com/search?q={query}",
+                        "Ecosia" to "https://www.ecosia.org/search?q={query}",
+                        "Startpage" to "https://www.startpage.com/sp/search?query={query}",
+                        "Własny adres" to null
+                    )
+
+                    searchEnginePresets.forEach { (label, value) ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    if (value != null) saveSearchEngine(value) else searchEngineText = ""
+                                }
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = (value != null && currentSearchEngine == value) || (value == null && searchEnginePresets.none { it.second == currentSearchEngine }),
+                                onClick = {
+                                    if (value != null) saveSearchEngine(value) else searchEngineText = ""
+                                }
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(label, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+
+                    if (searchEnginePresets.none { it.second == currentSearchEngine }) {
+                        Spacer(Modifier.height(8.dp))
+                        Text("Użyj {query} w miejscu wpisanej frazy.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(4.dp))
+                        OutlinedTextField(
+                            value = searchEngineText,
+                            onValueChange = { searchEngineText = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            label = { Text("Własny adres wyszukiwarki") }
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Button(onClick = { saveSearchEngine(searchEngineText) }, enabled = searchEngineText.isNotBlank()) {
+                            Text("Zapisz wyszukiwarkę")
+                        }
+                    }
+                }
+            }
+
+            // Ochrona i AdBlock
+            ElevatedCard(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Prywatność i ochrona", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(12.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text("Blokowanie reklam (AdBlock)", style = MaterialTheme.typography.bodyMedium)
@@ -2038,30 +2020,60 @@ fun SettingsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit
                     }
                     Spacer(Modifier.height(8.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Blokowanie PRO (Elementy CSS)", style = MaterialTheme.typography.bodyMedium)
+                        Text("Tryb AdBlock PRO (Usuwanie pustych pól CSS)", style = MaterialTheme.typography.bodyMedium)
                         Switch(checked = adBlockProEnabled, onCheckedChange = { viewModel.setAdBlockProEnabled(it) }, enabled = adBlockEnabled)
                     }
                 }
             }
-        }
-    }
-}
 
-@Composable
-private fun CrashLogScreen(log: String, onContinue: () -> Unit) {
-    val clipboardManager = LocalClipboardManager.current
-    MaterialTheme {
-        Surface(Modifier.fillMaxSize(), color = Color(0xFF1B1B1B)) {
-            Column(Modifier.fillMaxSize().statusBarsPadding().padding(20.dp)) {
-                Text("Wystąpił nieoczekiwany błąd", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
-                Spacer(Modifier.height(10.dp))
-                Box(Modifier.weight(1f).fillMaxWidth().background(Color.Black).padding(12.dp).verticalScroll(rememberScrollState())) {
-                    Text(log, fontSize = 11.sp, color = Color(0xFF4CB3FF))
+            // Folder Pobranych
+            ElevatedCard(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Lokalizacja pobieranych plików", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        if (downloadFolderUri != null) "Folder: $downloadFolderUri" else "Domyślny folder Pobrane (Downloads)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { folderPickerLauncher.launch(null) }) { Text("Zmień folder") }
+                        if (downloadFolderUri != null) {
+                            TextButton(onClick = { viewModel.setDownloadFolderUri(null) }) { Text("Przywróć domyślny") }
+                        }
+                    }
                 }
-                Spacer(Modifier.height(14.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(onClick = { clipboardManager.setText(AnnotatedString(log)) }, shape = RoundedCornerShape(8.dp)) { Text("Kopiuj log") }
-                    OutlinedButton(onClick = onContinue, shape = RoundedCornerShape(8.dp)) { Text("Kontynuuj") }
+            }
+
+            // Czyszczenie danych
+            ElevatedCard(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Czyszczenie danych przeglądarki", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.clearHistory()
+                            scope.launch { snackbarHostState.showSnackbar("Wyczyszczono historię") }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Wyczyść historię") }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.clearCookiesAndSiteData()
+                            scope.launch { snackbarHostState.showSnackbar("Wyczyszczono pliki cookie i dane witryn") }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Wyczyść pliki cookie i dane witryn") }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.clearBrowserCache()
+                            scope.launch { snackbarHostState.showSnackbar("Wyczyszczono pamięć podręczną") }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Wyczyść pamięć podręczną (cache)") }
                 }
             }
         }
@@ -2072,35 +2084,25 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        val crashFile = getFileStreamPath("last_crash.txt")
-        var crashLog by mutableStateOf<String?>(if (crashFile.exists()) crashFile.readText() else null)
         setContent {
-            if (crashLog != null) {
-                CrashLogScreen(log = crashLog!!) {
-                    crashFile.delete()
-                    crashLog = null
-                    recreate()
-                }
-            } else {
-                val viewModel: BrowserViewModel = viewModel()
-                val theme by viewModel.theme.collectAsState(initial = AppTheme.SYSTEM)
-                SuperBrowserTheme(appTheme = theme) {
-                    val navController = rememberNavController()
-                    NavHost(navController = navController, startDestination = "browser") {
-                        composable("browser") {
-                            BrowserScreen(
-                                viewModel = viewModel,
-                                onOpenHistory = { navController.navigate("history") },
-                                onOpenBookmarks = { navController.navigate("bookmarks") },
-                                onOpenDownloads = { navController.navigate("downloads") },
-                                onOpenSettings = { navController.navigate("settings") }
-                            )
-                        }
-                        composable("history") { HistoryScreen(viewModel = viewModel, onBack = { navController.popBackStack() }, onNavigate = { url -> viewModel.navigate(url) }) }
-                        composable("bookmarks") { BookmarksScreen(viewModel = viewModel, onBack = { navController.popBackStack() }, onNavigate = { url -> viewModel.navigate(url) }) }
-                        composable("downloads") { DownloadsScreen(viewModel = viewModel, onBack = { navController.popBackStack() }) }
-                        composable("settings") { SettingsScreen(viewModel = viewModel, onBack = { navController.popBackStack() }) }
+            val viewModel: BrowserViewModel = viewModel()
+            val theme by viewModel.theme.collectAsState(initial = AppTheme.SYSTEM)
+            SuperBrowserTheme(appTheme = theme) {
+                val navController = rememberNavController()
+                NavHost(navController = navController, startDestination = "browser") {
+                    composable("browser") {
+                        BrowserScreen(
+                            viewModel = viewModel,
+                            onOpenHistory = { navController.navigate("history") },
+                            onOpenBookmarks = { navController.navigate("bookmarks") },
+                            onOpenDownloads = { navController.navigate("downloads") },
+                            onOpenSettings = { navController.navigate("settings") }
+                        )
                     }
+                    composable("history") { HistoryScreen(viewModel = viewModel, onBack = { navController.popBackStack() }, onNavigate = { url -> viewModel.navigate(url) }) }
+                    composable("bookmarks") { BookmarksScreen(viewModel = viewModel, onBack = { navController.popBackStack() }, onNavigate = { url -> viewModel.navigate(url) }) }
+                    composable("downloads") { DownloadsScreen(viewModel = viewModel, onBack = { navController.popBackStack() }) }
+                    composable("settings") { SettingsScreen(viewModel = viewModel, onBack = { navController.popBackStack() }) }
                 }
             }
         }

@@ -52,7 +52,6 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -77,11 +76,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -1143,29 +1140,31 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     }
 }
 
-// Fluent Mica / Windows 11 Glass Colors
-private val FluentLightColors = lightColorScheme(
-    primary = Color(0xFF0078D4),
+// Kolorystyka Material 3
+private val AppLightColors = lightColorScheme(
+    primary = Color(0xFF0066CC),
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFE1F0FF),
+    primaryContainer = Color(0xFFD6E4FF),
     onPrimaryContainer = Color(0xFF001D36),
-    surface = Color(0xDDFAFAFA),
-    onSurface = Color(0xFF1F1F1F),
-    surfaceVariant = Color(0x99F1F1F1),
-    onSurfaceVariant = Color(0xFF616161),
-    outline = Color(0x33000000)
+    surface = Color(0xFFFFFFFF),
+    onSurface = Color(0xFF1A1C1E),
+    surfaceVariant = Color(0xFFF2F4F8),
+    onSurfaceVariant = Color(0xFF42474E),
+    outline = Color(0xFF72777F),
+    outlineVariant = Color(0xFFC2C7CF)
 )
 
-private val FluentDarkColors = darkColorScheme(
-    primary = Color(0xFF4CB3FF),
+private val AppDarkColors = darkColorScheme(
+    primary = Color(0xFF9ECAFF),
     onPrimary = Color(0xFF00325B),
     primaryContainer = Color(0xFF00497D),
-    onPrimaryContainer = Color(0xFFCEE5FF),
-    surface = Color(0xDD181818),
-    onSurface = Color(0xFFF3F3F3),
-    surfaceVariant = Color(0x99262626),
-    onSurfaceVariant = Color(0xFFB0B0B0),
-    outline = Color(0x33FFFFFF)
+    onPrimaryContainer = Color(0xFFD6E4FF),
+    surface = Color(0xFF121316),
+    onSurface = Color(0xFFE2E2E6),
+    surfaceVariant = Color(0xFF1E2024),
+    onSurfaceVariant = Color(0xFFC2C7CF),
+    outline = Color(0xFF8C9199),
+    outlineVariant = Color(0xFF42474E)
 )
 
 @Composable
@@ -1176,17 +1175,9 @@ fun SuperBrowserTheme(appTheme: AppTheme, content: @Composable () -> Unit) {
         AppTheme.LIGHT -> false
         AppTheme.DARK -> true
     }
-    val colorScheme = if (useDark) FluentDarkColors else FluentLightColors
+    val colorScheme = if (useDark) AppDarkColors else AppLightColors
     MaterialTheme(colorScheme = colorScheme, content = content)
 }
-
-fun Modifier.glassEffect(shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(16.dp)): Modifier = this
-    .graphicsLayer {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            renderEffect = BlurEffect(25f, 25f)
-        }
-    }
-    .clip(shape)
 
 private data class AddressSuggestion(val title: String, val url: String, val isBookmark: Boolean)
 
@@ -1281,25 +1272,19 @@ fun BrowserScreen(
                 exit = slideOutVertically(tween(250)) { -it } + fadeOut(tween(200))
             ) {
                 Surface(
-                    color = if (isActivePrivate) Color(0xDD1E1E1E) else MaterialTheme.colorScheme.surface,
-                    modifier = Modifier
-                        .statusBarsPadding()
-                        .glassEffect(RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp))
-                        .border(
-                            1.dp,
-                            if (isDarkTheme) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.6f),
-                            RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp)
-                        )
+                    color = if (isActivePrivate) Color(0xFF1E1E1E) else MaterialTheme.colorScheme.surface,
+                    tonalElevation = 3.dp,
+                    modifier = Modifier.statusBarsPadding()
                 ) {
                     Column {
                         if (isActivePrivate) {
                             Row(
-                                Modifier.fillMaxWidth().background(Color(0x990F0F0F)).padding(horizontal = 14.dp, vertical = 6.dp),
+                                Modifier.fillMaxWidth().background(Color(0xFF111111)).padding(horizontal = 14.dp, vertical = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.VisibilityOff, null, tint = Color(0xFF4CB3FF), modifier = Modifier.size(14.dp))
+                                Icon(Icons.Default.VisibilityOff, null, tint = Color(0xFF9ECAFF), modifier = Modifier.size(14.dp))
                                 Spacer(Modifier.width(8.dp))
-                                Text("Tryb InPrivate — aktywna sesja poufna", color = Color(0xFFE1F0FF), style = MaterialTheme.typography.labelSmall)
+                                Text("Tryb InPrivate — aktywna sesja poufna", color = Color(0xFFE2E2E6), style = MaterialTheme.typography.labelSmall)
                             }
                         }
                         
@@ -1317,13 +1302,13 @@ fun BrowserScreen(
                                     .weight(1f)
                                     .height(40.dp)
                                     .clip(RoundedCornerShape(20.dp))
-                                    .background(if (isActivePrivate) Color(0x662D2D2D) else MaterialTheme.colorScheme.surfaceVariant)
-                                    .border(1.dp, if (addressFocused) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.3f), RoundedCornerShape(20.dp))
+                                    .background(if (isActivePrivate) Color(0xFF2C2C2C) else MaterialTheme.colorScheme.surfaceVariant)
+                                    .border(1.dp, if (addressFocused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(20.dp))
                                     .padding(horizontal = 14.dp),
                                 contentAlignment = Alignment.CenterStart
                             ) {
                                 if (addressText.isEmpty()) {
-                                    Text("Wyszukaj lub wpisz adres", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                                    Text("Wyszukaj lub wpisz adres", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 BasicTextField(
                                     value = addressText,
@@ -1408,9 +1393,8 @@ fun BrowserScreen(
 
             Surface(
                 color = MaterialTheme.colorScheme.surface,
-                modifier = Modifier
-                    .glassEffect(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
-                    .border(1.dp, if (isDarkTheme) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.6f), RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                tonalElevation = 3.dp,
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
                     Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 8.dp, vertical = 6.dp),
@@ -1431,7 +1415,7 @@ fun BrowserScreen(
         }
 
         if (menuOpen) {
-            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)).clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { menuOpen = false })
+            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)).clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { menuOpen = false })
         }
         
         AnimatedVisibility(
@@ -1443,31 +1427,17 @@ fun BrowserScreen(
             val currentUrl = activeTab?.url?.value.orEmpty()
             val isCurrentPinned = currentUrl.isNotBlank() && pinnedSites.any { it.url == currentUrl }
             
-            TopSlideMenuGlass(
-                isDesktopMode = activeTab?.isDesktopMode?.value == true,
-                isCurrentPinned = isCurrentPinned,
-                hasCurrentUrl = currentUrl.isNotBlank(),
+            TopSlideMenu(
                 tabCount = viewModel.tabs.size,
                 dataSaverEnabled = dataSaverEnabled,
-                isDarkTheme = isDarkTheme,
                 onShare = {
                     if (currentUrl.isNotBlank()) {
                         val shareIntent = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, currentUrl) }
                         context.startActivity(Intent.createChooser(shareIntent, "Udostępnij"))
                     }
                 },
-                onCopyLink = {
-                    if (currentUrl.isNotBlank()) {
-                        clipboardManager.setText(AnnotatedString(currentUrl))
-                    }
-                },
-                onFind = { activeTab?.let { viewModel.startFindInPage(it) } },
-                onToggleDesktop = { activeTab?.let { viewModel.toggleDesktopMode(it) } },
-                onTogglePinClick = { onTogglePin(currentUrl, activeTab?.title?.value ?: currentUrl) },
                 onTranslate = { viewModel.translatePage() },
                 onNewPrivateTab = { viewModel.createTab("", select = true, isPrivate = true, showStartPage = true) },
-                onRestoreClosedTab = { viewModel.restoreLastClosedTab() },
-                onToggleDataSaver = { viewModel.setDataSaverEnabled(!dataSaverEnabled) },
                 onOpenHistory = onOpenHistory,
                 onOpenBookmarks = onOpenBookmarks,
                 onOpenDownloads = onOpenDownloads,
@@ -1486,22 +1456,12 @@ private fun CompactIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, d
 }
 
 @Composable
-private fun TopSlideMenuGlass(
-    isDesktopMode: Boolean,
-    isCurrentPinned: Boolean,
-    hasCurrentUrl: Boolean,
+private fun TopSlideMenu(
     tabCount: Int,
     dataSaverEnabled: Boolean,
-    isDarkTheme: Boolean,
     onShare: () -> Unit,
-    onCopyLink: () -> Unit,
-    onFind: () -> Unit,
-    onToggleDesktop: () -> Unit,
-    onTogglePinClick: () -> Unit,
     onTranslate: () -> Unit,
     onNewPrivateTab: () -> Unit,
-    onRestoreClosedTab: () -> Unit,
-    onToggleDataSaver: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenBookmarks: () -> Unit,
     onOpenDownloads: () -> Unit,
@@ -1513,73 +1473,43 @@ private fun TopSlideMenuGlass(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .padding(top = 10.dp)
-            .glassEffect(RoundedCornerShape(18.dp))
-            .border(
-                1.dp,
-                if (isDarkTheme) Color.White.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.7f),
-                RoundedCornerShape(18.dp)
-            ),
-        color = if (isDarkTheme) Color(0xDD1F1F1F) else Color(0xDDFAFAFA),
-        tonalElevation = 10.dp,
-        shadowElevation = 20.dp
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 8.dp,
+        shadowElevation = 12.dp
     ) {
-        Column(Modifier.padding(vertical = 12.dp)) {
-            WindowsFluentMenuRow("Karty ($tabCount)", false, act { })
-            WindowsFluentMenuRow("Historia", false, act(onOpenHistory))
-            WindowsFluentMenuRow("Ulubione i zakładki", false, act(onOpenBookmarks))
-            WindowsFluentMenuRow("Pobrane pliki", false, act(onOpenDownloads))
+        Column(Modifier.padding(vertical = 8.dp)) {
+            MenuRow("Karty ($tabCount)", Icons.Default.Tab, act { })
+            MenuRow("Historia", Icons.Default.History, act(onOpenHistory))
+            MenuRow("Ulubione i zakładki", Icons.Default.Star, act(onOpenBookmarks))
+            MenuRow("Pobrane pliki", Icons.Default.Download, act(onOpenDownloads))
             
-            HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
             
-            WindowsFluentMenuRow("Przetłumacz stronę", false, act(onTranslate))
-            WindowsFluentMenuRow("Nowa karta InPrivate", false, act(onNewPrivateTab))
-            WindowsFluentMenuRow("Udostępnij link", false, act(onShare))
+            MenuRow("Przetłumacz stronę", Icons.Default.Translate, act(onTranslate))
+            MenuRow("Nowa karta InPrivate", Icons.Default.VisibilityOff, act(onNewPrivateTab))
+            MenuRow("Udostępnij link", Icons.Default.Share, act(onShare))
             
-            HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
             
-            WindowsFluentMenuRow("Ustawienia AiXE", false, act(onOpenSettings))
+            MenuRow("Ustawienia AiXE", Icons.Default.Settings, act(onOpenSettings))
         }
     }
 }
 
 @Composable
-private fun WindowsFluentMenuRow(
-    label: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    Box(
+private fun MenuRow(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+    Row(
         Modifier
             .fillMaxWidth()
-            .height(40.dp)
-            .padding(horizontal = 8.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (isSelected) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f) else Color.Transparent)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.CenterStart
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (isSelected) {
-                Box(
-                    Modifier
-                        .width(4.dp)
-                        .height(18.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(MaterialTheme.colorScheme.primary)
-                )
-            } else {
-                Spacer(Modifier.width(4.dp))
-            }
-            Spacer(Modifier.width(16.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
+        Icon(icon, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.width(16.dp))
+        Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
     }
 }
 
@@ -1627,7 +1557,7 @@ private fun StartPageContent(
     val backgroundModifier = when {
         hasGradient -> Modifier.background(Brush.verticalGradient(gradientColors))
         isPrivate -> Modifier.background(Color(0xFF141414))
-        isDarkTheme -> Modifier.background(Color(0xFF181818))
+        isDarkTheme -> Modifier.background(Color(0xFF121316))
         else -> Modifier.background(MaterialTheme.colorScheme.surface)
     }
 
@@ -1890,7 +1820,7 @@ fun DownloadsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Uni
     }
 }
 
-// PEŁNY EKRAN USTAWIEŃ - ZE WSZYSTKIMI OPCJAMI
+// PROFESJONALNY EKRAN USTAWIEN (Styl profesjonalnej przeglądarki pulpitowej / Windows 11 Settings)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit) {
@@ -1920,17 +1850,19 @@ fun SettingsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit
         val saved = url.ifBlank { "https://www.google.com/search?q={query}" }
         viewModel.setSearchEngineUrl(saved)
         searchEngineText = saved
-        scope.launch { snackbarHostState.showSnackbar("Zapisano wyszukiwarkę") }
+        scope.launch { snackbarHostState.showSnackbar("Zapisano domyślną wyszukiwarkę") }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Ustawienia AiXE", fontWeight = FontWeight.SemiBold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) } }
+                title = { Text("Ustawienia AiXE", fontWeight = FontWeight.Bold) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) } },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
     ) { padding ->
         Column(
             Modifier
@@ -1939,11 +1871,16 @@ fun SettingsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Motyw aplikacji
-            ElevatedCard(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+            // Sekcja: Wygląd
+            SettingCategoryHeader("Wygląd i interfejs", Icons.Default.Palette)
+            Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("Motyw aplikacji", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(10.dp))
+                    Text("Motyw aplikacji", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(selected = currentTheme == AppTheme.SYSTEM, onClick = { viewModel.setTheme(AppTheme.SYSTEM) }, label = { Text("Systemowy") })
                         FilterChip(selected = currentTheme == AppTheme.LIGHT, onClick = { viewModel.setTheme(AppTheme.LIGHT) }, label = { Text("Jasny") })
@@ -1952,11 +1889,16 @@ fun SettingsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit
                 }
             }
 
-            // Domyślna wyszukiwarka
-            ElevatedCard(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+            // Sekcja: Wyszukiwanie
+            SettingCategoryHeader("Wyszukiwanie i adres", Icons.Default.Search)
+            Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("Domyślna wyszukiwarka", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(10.dp))
+                    Text("Domyślna wyszukiwarka", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(8.dp))
                     
                     val searchEnginePresets = listOf(
                         "Google" to "https://www.google.com/search?q={query}",
@@ -1984,21 +1926,21 @@ fun SettingsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit
                                     if (value != null) saveSearchEngine(value) else searchEngineText = ""
                                 }
                             )
-                            Spacer(Modifier.width(8.dp))
+                            Spacer(Modifier.width(12.dp))
                             Text(label, style = MaterialTheme.typography.bodyMedium)
                         }
                     }
 
                     if (searchEnginePresets.none { it.second == currentSearchEngine }) {
                         Spacer(Modifier.height(8.dp))
-                        Text("Użyj {query} w miejscu wpisanej frazy.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.height(4.dp))
+                        Text("Wprowadź adres URL z parametrem {query}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(6.dp))
                         OutlinedTextField(
                             value = searchEngineText,
                             onValueChange = { searchEngineText = it },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
-                            label = { Text("Własny adres wyszukiwarki") }
+                            label = { Text("Szablon wyszukiwania") }
                         )
                         Spacer(Modifier.height(8.dp))
                         Button(onClick = { saveSearchEngine(searchEngineText) }, enabled = searchEngineText.isNotBlank()) {
@@ -2008,56 +1950,73 @@ fun SettingsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit
                 }
             }
 
-            // Ochrona i AdBlock
-            ElevatedCard(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+            // Sekcja: Prywatność i Ochrona
+            SettingCategoryHeader("Prywatność i ochrona", Icons.Default.Shield)
+            Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("Prywatność i ochrona", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(12.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Blokowanie reklam (AdBlock)", style = MaterialTheme.typography.bodyMedium)
+                        Column(Modifier.weight(1f)) {
+                            Text("Blokowanie reklam (AdBlock)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                            Text("Blokuje skrypty śledzące i reklamy", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                         Switch(checked = adBlockEnabled, onCheckedChange = { viewModel.setAdBlockEnabled(it) })
                     }
-                    Spacer(Modifier.height(8.dp))
+                    HorizontalDivider(Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Tryb AdBlock PRO (Usuwanie pustych pól CSS)", style = MaterialTheme.typography.bodyMedium)
+                        Column(Modifier.weight(1f)) {
+                            Text("Tryb AdBlock PRO", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                            Text("Automatyczne usuwanie pustych kontenerów CSS", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                         Switch(checked = adBlockProEnabled, onCheckedChange = { viewModel.setAdBlockProEnabled(it) }, enabled = adBlockEnabled)
                     }
                 }
             }
 
-            // Folder Pobranych
-            ElevatedCard(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+            // Sekcja: Pobieranie
+            SettingCategoryHeader("Pobieranie plików", Icons.Default.Download)
+            Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("Lokalizacja pobieranych plików", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(8.dp))
+                    Text("Lokalizacja pobierania", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(4.dp))
                     Text(
-                        if (downloadFolderUri != null) "Folder: $downloadFolderUri" else "Domyślny folder Pobrane (Downloads)",
+                        if (downloadFolderUri != null) "$downloadFolderUri" else "Domyślny katalog systemowy (Pobrane)",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { folderPickerLauncher.launch(null) }) { Text("Zmień folder") }
+                        OutlinedButton(onClick = { folderPickerLauncher.launch(null) }) { Text("Zmień katalog") }
                         if (downloadFolderUri != null) {
-                            TextButton(onClick = { viewModel.setDownloadFolderUri(null) }) { Text("Przywróć domyślny") }
+                            TextButton(onClick = { viewModel.setDownloadFolderUri(null) }) { Text("Resetuj domyślny") }
                         }
                     }
                 }
             }
 
-            // Czyszczenie danych
-            ElevatedCard(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp)) {
-                    Text("Czyszczenie danych przeglądarki", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(12.dp))
+            // Sekcja: Zarządzanie danymi
+            SettingCategoryHeader("Dane przeglądania", Icons.Default.DeleteSweep)
+            Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
                         onClick = {
                             viewModel.clearHistory()
-                            scope.launch { snackbarHostState.showSnackbar("Wyczyszczono historię") }
+                            scope.launch { snackbarHostState.showSnackbar("Wyczyszczono historię przeglądania") }
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("Wyczyść historię") }
-                    Spacer(Modifier.height(8.dp))
+                    
                     OutlinedButton(
                         onClick = {
                             viewModel.clearCookiesAndSiteData()
@@ -2065,7 +2024,7 @@ fun SettingsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("Wyczyść pliki cookie i dane witryn") }
-                    Spacer(Modifier.height(8.dp))
+                    
                     OutlinedButton(
                         onClick = {
                             viewModel.clearBrowserCache()
@@ -2075,7 +2034,20 @@ fun SettingsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit
                     ) { Text("Wyczyść pamięć podręczną (cache)") }
                 }
             }
+            Spacer(Modifier.height(16.dp))
         }
+    }
+}
+
+@Composable
+private fun SettingCategoryHeader(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp, start = 4.dp)
+    ) {
+        Icon(icon, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.width(8.dp))
+        Text(title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
     }
 }
 

@@ -6,8 +6,6 @@ import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.RenderEffect
-import android.graphics.Shader
 import android.net.Uri
 import android.net.http.SslCertificate
 import android.net.http.SslError
@@ -79,6 +77,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -1184,7 +1183,7 @@ fun SuperBrowserTheme(appTheme: AppTheme, content: @Composable () -> Unit) {
 fun Modifier.glassEffect(shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(16.dp)): Modifier = this
     .graphicsLayer {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            renderEffect = RenderEffect.createBlurEffect(25f, 25f, Shader.TileMode.CLAMP)
+            renderEffect = BlurEffect(25f, 25f)
         }
     }
     .clip(shape)
@@ -1891,7 +1890,7 @@ fun DownloadsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Uni
     }
 }
 
-// PEŁNY EKRAN USTAWIEŃ - ZERO UPROSZCZEŃ
+// PEŁNY EKRAN USTAWIEŃ - ZE WSZYSTKIMI OPCJAMI
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit) {

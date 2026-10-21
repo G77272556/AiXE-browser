@@ -35,6 +35,46 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.StarOutline
+import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -43,33 +83,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material.icons.outlined.StarOutline
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -107,6 +121,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.room.*
+import androidx.room.Database
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+import androidx.room.Room
+import androidx.room.RoomDatabase
 import java.io.ByteArrayInputStream
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -130,7 +149,8 @@ class SuperBrowserApp : Application() {
                 val writer = java.io.StringWriter()
                 throwable.printStackTrace(java.io.PrintWriter(writer))
                 getFileStreamPath("last_crash.txt").writeText(writer.toString())
-            } catch (e: Exception) {}
+            } catch (e: Exception) {
+            }
             previousHandler?.uncaughtException(thread, throwable)
         }
     }
@@ -171,16 +191,41 @@ data class FrequentSite(
 data class GradientPreset(
     val id: String,
     val label: String,
-    val normalColors: List<Color>,
-    val privateColors: List<Color>
+    val normalColors: List<androidx.compose.ui.graphics.Color>,
+    val privateColors: List<androidx.compose.ui.graphics.Color>
 )
 
 val gradientPresets: List<GradientPreset> = listOf(
-    GradientPreset(id = "none", label = "Brak", normalColors = emptyList(), privateColors = emptyList()),
-    GradientPreset(id = "sunset", label = "Zachód słońca", normalColors = listOf(Color(0xFFFF9A5C), Color(0xFFFF6F91)), privateColors = listOf(Color(0xFF4A1942), Color(0xFF2D0A2E))),
-    GradientPreset(id = "ocean", label = "Ocean", normalColors = listOf(Color(0xFF2193B0), Color(0xFF6DD5ED)), privateColors = listOf(Color(0xFF0B2545), Color(0xFF13315C))),
-    GradientPreset(id = "forest", label = "Las", normalColors = listOf(Color(0xFF11998E), Color(0xFF38EF7D)), privateColors = listOf(Color(0xFF0B3D2E), Color(0xFF145C43))),
-    GradientPreset(id = "purple", label = "Fiolet", normalColors = listOf(Color(0xFF667EEA), Color(0xFF764BA2)), privateColors = listOf(Color(0xFF2D1B4E), Color(0xFF1A0B2E)))
+    GradientPreset(
+        id = "none",
+        label = "Brak",
+        normalColors = emptyList(),
+        privateColors = emptyList()
+    ),
+    GradientPreset(
+        id = "sunset",
+        label = "Zachód słońca",
+        normalColors = listOf(androidx.compose.ui.graphics.Color(0xFFFF9A5C), androidx.compose.ui.graphics.Color(0xFFFF6F91)),
+        privateColors = listOf(androidx.compose.ui.graphics.Color(0xFF4A1942), androidx.compose.ui.graphics.Color(0xFF2D0A2E))
+    ),
+    GradientPreset(
+        id = "ocean",
+        label = "Ocean",
+        normalColors = listOf(androidx.compose.ui.graphics.Color(0xFF2193B0), androidx.compose.ui.graphics.Color(0xFF6DD5ED)),
+        privateColors = listOf(androidx.compose.ui.graphics.Color(0xFF0B2545), androidx.compose.ui.graphics.Color(0xFF13315C))
+    ),
+    GradientPreset(
+        id = "forest",
+        label = "Las",
+        normalColors = listOf(androidx.compose.ui.graphics.Color(0xFF11998E), androidx.compose.ui.graphics.Color(0xFF38EF7D)),
+        privateColors = listOf(androidx.compose.ui.graphics.Color(0xFF0B3D2E), androidx.compose.ui.graphics.Color(0xFF145C43))
+    ),
+    GradientPreset(
+        id = "purple",
+        label = "Fiolet",
+        normalColors = listOf(androidx.compose.ui.graphics.Color(0xFF667EEA), androidx.compose.ui.graphics.Color(0xFF764BA2)),
+        privateColors = listOf(androidx.compose.ui.graphics.Color(0xFF2D1B4E), androidx.compose.ui.graphics.Color(0xFF1A0B2E))
+    )
 )
 
 private val dailyFacts = listOf(
@@ -198,7 +243,7 @@ private val dailyFacts = listOf(
     "Jeden dzień na Wenus (obrót wokół własnej osi) trwa dłużej niż jej rok (obieg wokół Słońca).",
     "Ludzki nos potrafi rozróżnić ponad bilion różnych zapachów.",
     "Pierwszy komputer o wadze prawie 30 ton (ENIAC) miał moc obliczeniową mniejszą niż dzisiejszy kalkulator.",
-    "Rekin grenlandzki może żyć nawet ponad 300 lat — to najdłużej żyjący znany kręgowiec."
+    "Rekin grenlandzki może żyć nawet ponad 300 lat — to najdłużej żyjący znany kręgowiec.",
 )
 
 private fun factOfTheDay(): String {
@@ -294,6 +339,7 @@ private val Context.dataStore by preferencesDataStore(name = "settings")
 enum class AppTheme { SYSTEM, LIGHT, DARK }
 
 class SettingsRepository(private val context: Context) {
+
     private val themeKey = stringPreferencesKey("theme")
     private val searchEngineKey = stringPreferencesKey("search_engine")
     private val adBlockKey = booleanPreferencesKey("ad_block_enabled")
@@ -302,7 +348,6 @@ class SettingsRepository(private val context: Context) {
     private val newTabGradientKey = stringPreferencesKey("new_tab_gradient_id")
     private val pinnedSitesKey = stringPreferencesKey("pinned_sites")
     private val dataSaverKey = booleanPreferencesKey("data_saver_enabled")
-
     val theme: Flow<AppTheme> = context.dataStore.data.map { prefs ->
         prefs[themeKey]?.let { AppTheme.valueOf(it) } ?: AppTheme.SYSTEM
     }
@@ -327,19 +372,32 @@ class SettingsRepository(private val context: Context) {
     val dataSaverEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[dataSaverKey] ?: false
     }
-
-    suspend fun setTheme(value: AppTheme) { context.dataStore.edit { it[themeKey] = value.name } }
-    suspend fun setSearchEngineUrl(value: String) { context.dataStore.edit { it[searchEngineKey] = value } }
-    suspend fun setAdBlockEnabled(value: Boolean) { context.dataStore.edit { it[adBlockKey] = value } }
-    suspend fun setAdBlockProEnabled(value: Boolean) { context.dataStore.edit { it[adBlockProKey] = value } }
+    suspend fun setTheme(value: AppTheme) {
+        context.dataStore.edit { it[themeKey] = value.name }
+    }
+    suspend fun setSearchEngineUrl(value: String) {
+        context.dataStore.edit { it[searchEngineKey] = value }
+    }
+    suspend fun setAdBlockEnabled(value: Boolean) {
+        context.dataStore.edit { it[adBlockKey] = value }
+    }
+    suspend fun setAdBlockProEnabled(value: Boolean) {
+        context.dataStore.edit { it[adBlockProKey] = value }
+    }
     suspend fun setDownloadFolderUri(value: String?) {
         context.dataStore.edit { prefs ->
             if (value == null) prefs.remove(downloadFolderUriKey) else prefs[downloadFolderUriKey] = value
         }
     }
-    suspend fun setNewTabGradientId(value: String) { context.dataStore.edit { it[newTabGradientKey] = value } }
-    suspend fun setPinnedSites(sites: List<PinnedSite>) { context.dataStore.edit { it[pinnedSitesKey] = serializePinnedSites(sites) } }
-    suspend fun setDataSaverEnabled(value: Boolean) { context.dataStore.edit { it[dataSaverKey] = value } }
+    suspend fun setNewTabGradientId(value: String) {
+        context.dataStore.edit { it[newTabGradientKey] = value }
+    }
+    suspend fun setPinnedSites(sites: List<PinnedSite>) {
+        context.dataStore.edit { it[pinnedSitesKey] = serializePinnedSites(sites) }
+    }
+    suspend fun setDataSaverEnabled(value: Boolean) {
+        context.dataStore.edit { it[dataSaverKey] = value }
+    }
 }
 
 data class PinnedSite(val url: String, val title: String)
@@ -368,6 +426,7 @@ private fun parsePinnedSites(raw: String): List<PinnedSite> {
 }
 
 object WebViewHardening {
+
     @SuppressLint("SetJavaScriptEnabled")
     fun applyHardenedSettings(webView: WebView) {
         val settings = webView.settings
@@ -378,15 +437,18 @@ object WebViewHardening {
         settings.savePassword = false
         settings.safeBrowsingEnabled = true
         settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-        val isDebugBuild = (webView.context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        val isDebugBuild = (webView.context.applicationInfo.flags and
+            android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
         WebView.setWebContentsDebuggingEnabled(isDebugBuild)
     }
+
     fun applyPrivateModeSettings(webView: WebView) {
         webView.settings.cacheMode = WebSettings.LOAD_NO_CACHE
     }
 }
 
 object AdBlockRuleParser {
+
     data class ParsedRules(
         val exactDomains: Set<String>,
         val wildcardPatterns: List<Regex>,
@@ -406,6 +468,8 @@ object AdBlockRuleParser {
                 line.contains("##") -> {
                     val selector = line.substringAfter("##").trim()
                     if (selector.isNotBlank()) cosmetic.add(selector)
+                }
+                line.contains("#@#") -> {
                 }
                 line.startsWith("@@") -> {
                     val body = line.removePrefix("@@")
@@ -429,6 +493,7 @@ object AdBlockRuleParser {
                         exact.add(domain.lowercase())
                     }
                 }
+                else -> continue
             }
         }
         return ParsedRules(exact, wildcards, exceptions, cosmetic)
@@ -444,7 +509,9 @@ object AdBlockRuleParser {
 }
 
 object ExternalUriHandler {
+
     private val externalSchemes = setOf("mailto", "sms", "tel")
+
     fun tryHandle(context: Context, url: String): Boolean {
         val scheme = runCatching { Uri.parse(url).scheme }.getOrNull()?.lowercase() ?: return false
         if (scheme !in externalSchemes) return false
@@ -461,7 +528,10 @@ object ExternalUriHandler {
 }
 
 object DangerousUrlGuard {
-    private val ipHostPattern = Pattern.compile("^https?://(\\d{1,3}\\.){3}\\d{1,3}(:\\d+)?(/.*)?$")
+
+    private val ipHostPattern = Pattern.compile(
+        "^https?://(\\d{1,3}\\.){3}\\d{1,3}(:\\d+)?(/.*)?$"
+    )
     private val userInfoTrickPattern = Pattern.compile("^https?://[^/]*@")
     private val suspiciousBrandSubdomain = Pattern.compile(
         "(paypal|apple|google|microsoft|bank|allegro|inpost|dhl)\\.[a-z0-9-]+\\.(xyz|top|club|work|gq|tk|zip|mov)",
@@ -471,15 +541,24 @@ object DangerousUrlGuard {
     enum class RiskLevel { SAFE, SUSPICIOUS, BLOCK }
     data class Verdict(val risk: RiskLevel, val reason: String?)
     fun evaluate(url: String): Verdict {
-        if (userInfoTrickPattern.matcher(url).find()) return Verdict(RiskLevel.BLOCK, "Adres próbuje ukryć prawdziwy host za znakiem @")
-        if (suspiciousBrandSubdomain.matcher(url).find()) return Verdict(RiskLevel.BLOCK, "Znana marka użyta jako subdomena podejrzanej domeny")
-        if (ipHostPattern.matcher(url).find()) return Verdict(RiskLevel.SUSPICIOUS, "Adres to bezpośrednie IP zamiast nazwy domeny")
-        if (punycodePattern.matcher(url).find()) return Verdict(RiskLevel.SUSPICIOUS, "Adres zawiera zakodowane znaki Unicode (możliwy atak homograficzny)")
+        if (userInfoTrickPattern.matcher(url).find()) {
+            return Verdict(RiskLevel.BLOCK, "Adres próbuje ukryć prawdziwy host za znakiem @")
+        }
+        if (suspiciousBrandSubdomain.matcher(url).find()) {
+            return Verdict(RiskLevel.BLOCK, "Znana marka użyta jako subdomena podejrzanej domeny")
+        }
+        if (ipHostPattern.matcher(url).find()) {
+            return Verdict(RiskLevel.SUSPICIOUS, "Adres to bezpośrednie IP zamiast nazwy domeny")
+        }
+        if (punycodePattern.matcher(url).find()) {
+            return Verdict(RiskLevel.SUSPICIOUS, "Adres zawiera zakodowane znaki Unicode (możliwy atak homograficzny)")
+        }
         return Verdict(RiskLevel.SAFE, null)
     }
 }
 
 object SafeBrowsingCallback {
+
     fun handle(threatType: Int, callback: SafeBrowsingResponse, onBlocked: (String) -> Unit) {
         val reason = when (threatType) {
             WebViewClient.SAFE_BROWSING_THREAT_MALWARE -> "Wykryto złośliwe oprogramowanie na tej stronie"
@@ -494,6 +573,7 @@ object SafeBrowsingCallback {
 }
 
 object CertificateInspector {
+
     data class CertWarning(
         val errorDescription: String,
         val issuedTo: String,
@@ -529,8 +609,16 @@ object CertificateInspector {
     fun cancelConnection(handler: SslErrorHandler) = handler.cancel()
 }
 
-data class PageLoadError(val title: String, val message: String, val isHttpError: Boolean = false)
-data class GeolocationRequestInfo(val origin: String, val callback: GeolocationPermissions.Callback)
+data class PageLoadError(
+    val title: String,
+    val message: String,
+    val isHttpError: Boolean = false
+)
+
+data class GeolocationRequestInfo(
+    val origin: String,
+    val callback: GeolocationPermissions.Callback
+)
 
 class BrowserTab(
     val id: String = UUID.randomUUID().toString(),
@@ -575,12 +663,12 @@ class DownloadRecord(
 }
 
 class BrowserViewModel(application: Application) : AndroidViewModel(application) {
+
     private val app get() = getApplication<SuperBrowserApp>()
     private val historyDao = app.database.historyDao()
     private val bookmarkDao = app.database.bookmarkDao()
     private val bookmarkFolderDao = app.database.bookmarkFolderDao()
     private val settings = app.settings
-
     val tabs = mutableStateListOf<BrowserTab>()
     val activeTabId = mutableStateOf<String?>(null)
     val downloads = mutableStateListOf<DownloadRecord>()
@@ -590,7 +678,6 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     val pendingGeolocationRequest = mutableStateOf<GeolocationRequestInfo?>(null)
     val justCompletedDownload = mutableStateOf<DownloadRecord?>(null)
     val requestNotificationPermission = mutableStateOf(false)
-
     val theme: Flow<AppTheme> = settings.theme
     val searchEngineUrlFlow: Flow<String> = settings.searchEngineUrl
     val adBlockEnabledFlow: Flow<Boolean> = settings.adBlockEnabled
@@ -604,11 +691,9 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     val pinnedSitesFlow: Flow<List<PinnedSite>> = settings.pinnedSites
     val frequentSitesFlow: Flow<List<FrequentSite>> = historyDao.getMostVisited()
     val dailyFact = factOfTheDay()
-
     @Volatile private var adBlockEnabledCache = true
     @Volatile private var adBlockProEnabledCache = true
     @Volatile private var dataSaverEnabledCache = false
-
     init {
         viewModelScope.launch { adBlockEnabledFlow.collect { adBlockEnabledCache = it } }
         viewModelScope.launch { adBlockProEnabledFlow.collect { adBlockProEnabledCache = it } }
@@ -624,7 +709,6 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             }
         }
     }
-
     private val closedTabsStack = ArrayDeque<String>()
     fun activeTab(): BrowserTab? = tabs.find { it.id == activeTabId.value }
 
@@ -650,7 +734,6 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         val tab = BrowserTab(webView = webView, isPrivate = isPrivate)
         tab.isNewTabPage.value = showStartPage
         tabs.add(tab)
-
         webView.setOnScrollChangeListener { _, _, scrollY, _, oldScrollY ->
             val dy = scrollY - oldScrollY
             when {
@@ -659,7 +742,6 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 dy < -12 -> tab.isToolbarVisible.value = true
             }
         }
-
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView, u: String, favicon: Bitmap?) {
                 tab.isLoading.value = true
@@ -672,11 +754,18 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             }
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val target = request.url.toString()
-                if (ExternalUriHandler.tryHandle(view.context, target)) return true
+                if (ExternalUriHandler.tryHandle(view.context, target)) {
+                    return true
+                }
                 val verdict = DangerousUrlGuard.evaluate(target)
                 when (verdict.risk) {
-                    DangerousUrlGuard.RiskLevel.BLOCK -> { tab.securityWarning.value = verdict.reason; return true }
-                    DangerousUrlGuard.RiskLevel.SUSPICIOUS -> { tab.securityWarning.value = verdict.reason }
+                    DangerousUrlGuard.RiskLevel.BLOCK -> {
+                        tab.securityWarning.value = verdict.reason
+                        return true
+                    }
+                    DangerousUrlGuard.RiskLevel.SUSPICIOUS -> {
+                        tab.securityWarning.value = verdict.reason
+                    }
                     DangerousUrlGuard.RiskLevel.SAFE -> Unit
                 }
                 tab.lastNavigationUrl = target
@@ -693,7 +782,9 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 }
                 if (!isPrivate) {
                     viewModelScope.launch {
-                        historyDao.insert(HistoryEntity(url = u, title = view.title ?: u, visitedAt = System.currentTimeMillis()))
+                        historyDao.insert(
+                            HistoryEntity(url = u, title = view.title ?: u, visitedAt = System.currentTimeMillis())
+                        )
                     }
                 }
             }
@@ -704,13 +795,21 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 }
                 return super.shouldInterceptRequest(view, request)
             }
-            override fun onSafeBrowsingHit(view: WebView, request: WebResourceRequest, threatType: Int, callback: SafeBrowsingResponse) {
-                SafeBrowsingCallback.handle(threatType, callback) { reason -> tab.securityWarning.value = reason }
+            override fun onSafeBrowsingHit(
+                view: WebView,
+                request: WebResourceRequest,
+                threatType: Int,
+                callback: SafeBrowsingResponse
+            ) {
+                SafeBrowsingCallback.handle(threatType, callback) { reason ->
+                    tab.securityWarning.value = reason
+                }
             }
             override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
                 val requestedHost = tab.lastNavigationUrl?.let { runCatching { Uri.parse(it).host }.getOrNull() }
                 val errorHost = runCatching { Uri.parse(error.url).host }.getOrNull()
-                if (requestedHost == null || requestedHost != errorHost) {
+                val isMainPageRequest = requestedHost != null && requestedHost == errorHost
+                if (!isMainPageRequest) {
                     handler.cancel()
                     return
                 }
@@ -719,17 +818,23 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
                 if (request.isForMainFrame) {
                     tab.isLoading.value = false
-                    tab.pageError.value = PageLoadError("Nie można wczytać strony", "Sprawdź połączenie z internetem i spróbuj ponownie.\n\n${error.description}")
+                    tab.pageError.value = PageLoadError(
+                        title = "Nie można wczytać strony",
+                        message = "Sprawdź połączenie z internetem i spróbuj ponownie.\n\n${error.description}"
+                    )
                 }
             }
             override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, errorResponse: WebResourceResponse) {
                 if (request.isForMainFrame && errorResponse.statusCode >= 400) {
                     tab.isLoading.value = false
-                    tab.pageError.value = PageLoadError("Błąd ${errorResponse.statusCode}", "Serwer zwrócił błąd podczas wczytywania tej strony.", true)
+                    tab.pageError.value = PageLoadError(
+                        title = "Błąd ${errorResponse.statusCode}",
+                        message = "Serwer zwrócił błąd podczas wczytywania tej strony.",
+                        isHttpError = true
+                    )
                 }
             }
         }
-
         webView.webChromeClient = object : WebChromeClient() {
             override fun onReceivedTitle(view: WebView, title: String?) {
                 tab.title.value = title?.takeIf { it.isNotBlank() } ?: "Nowa karta"
@@ -749,17 +854,28 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             override fun onProgressChanged(view: WebView, newProgress: Int) {
                 tab.loadProgress.value = newProgress / 100f
             }
-            override fun onShowFileChooser(view: WebView, filePathCallback: ValueCallback<Array<Uri>>, fileChooserParams: FileChooserParams): Boolean {
+            override fun onShowFileChooser(
+                view: WebView,
+                filePathCallback: ValueCallback<Array<Uri>>,
+                fileChooserParams: FileChooserParams
+            ): Boolean {
                 pendingFileChooserCallback?.onReceiveValue(null)
                 pendingFileChooserCallback = filePathCallback
                 fileChooserIntent.value = fileChooserParams.createIntent()
                 return true
             }
-            override fun onPermissionRequest(request: PermissionRequest) { pendingWebPermissionRequest.value = request }
+            override fun onPermissionRequest(request: PermissionRequest) {
+                pendingWebPermissionRequest.value = request
+            }
             override fun onGeolocationPermissionsShowPrompt(origin: String, callback: GeolocationPermissions.Callback) {
                 pendingGeolocationRequest.value = GeolocationRequestInfo(origin, callback)
             }
-            override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message): Boolean {
+            override fun onCreateWindow(
+                view: WebView,
+                isDialog: Boolean,
+                isUserGesture: Boolean,
+                resultMsg: Message
+            ): Boolean {
                 if (!isUserGesture) {
                     val probeWebView = WebView(app)
                     probeWebView.webViewClient = object : WebViewClient() {
@@ -791,7 +907,6 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 tab.customViewCallback = null
             }
         }
-
         webView.setFindListener { activeMatchOrdinal, numberOfMatches, isDoneCounting ->
             if (isDoneCounting) {
                 tab.findInPageMatchCount.value = numberOfMatches
@@ -802,7 +917,6 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             requestNotificationPermission.value = true
             startDownload(downloadUrl, contentDisposition, mimeType)
         }
-
         if (!showStartPage && url.isNotBlank()) {
             tab.lastNavigationUrl = url
             webView.loadUrl(url)
@@ -810,7 +924,6 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         if (select) activeTabId.value = tab.id
         return tab
     }
-
     fun closeTab(tabId: String) {
         val idx = tabs.indexOfFirst { it.id == tabId }
         if (idx == -1) return
@@ -822,27 +935,33 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         }
         val wasPrivate = closedTab.isPrivate
         if (wasPrivate) {
-            closedTab.webView.apply { clearHistory(); clearCache(true); clearFormData() }
+            closedTab.webView.apply {
+                clearHistory()
+                clearCache(true)
+                clearFormData()
+            }
         }
         closedTab.webView.destroy()
         tabs.removeAt(idx)
-        if (wasPrivate && tabs.none { it.isPrivate }) clearCookiesAndSiteData()
+        if (wasPrivate && tabs.none { it.isPrivate }) {
+            clearCookiesAndSiteData()
+        }
         if (activeTabId.value == tabId) {
             activeTabId.value = tabs.getOrNull(idx.coerceAtMost(tabs.lastIndex))?.id
         }
-        if (tabs.isEmpty()) createTab("", showStartPage = true)
+        if (tabs.isEmpty()) {
+            createTab("", showStartPage = true)
+        }
     }
-
     fun restoreLastClosedTab() {
         if (closedTabsStack.isEmpty()) return
-        createTab(closedTabsStack.removeLast(), select = true)
+        val url = closedTabsStack.removeLast()
+        createTab(url, select = true)
     }
-
     fun selectTab(tabId: String) {
         activeTabId.value = tabId
         activeTab()?.let { refreshBookmarkState(it) }
     }
-
     fun navigate(input: String) {
         val tab = activeTab() ?: return
         if (input.isBlank()) return
@@ -851,8 +970,13 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             val target = normalizeUrl(input, template)
             val verdict = DangerousUrlGuard.evaluate(target)
             when (verdict.risk) {
-                DangerousUrlGuard.RiskLevel.BLOCK -> { tab.securityWarning.value = verdict.reason; return@launch }
-                DangerousUrlGuard.RiskLevel.SUSPICIOUS -> { tab.securityWarning.value = verdict.reason }
+                DangerousUrlGuard.RiskLevel.BLOCK -> {
+                    tab.securityWarning.value = verdict.reason
+                    return@launch
+                }
+                DangerousUrlGuard.RiskLevel.SUSPICIOUS -> {
+                    tab.securityWarning.value = verdict.reason
+                }
                 DangerousUrlGuard.RiskLevel.SAFE -> Unit
             }
             tab.isNewTabPage.value = false
@@ -860,7 +984,6 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             tab.webView.loadUrl(target)
         }
     }
-
     private fun normalizeUrl(input: String, searchTemplate: String): String {
         val trimmed = input.trim()
         if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
@@ -868,10 +991,10 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             return if (afterScheme.isNotBlank()) trimmed else searchUrl(trimmed, searchTemplate)
         }
         val domainPattern = Regex("^[a-zA-Z0-9-]+(\\.[a-zA-Z0-9-]+)+(:[0-9]+)?(/.*)?$")
-        if (!trimmed.contains(" ") && domainPattern.matches(trimmed)) return "https://$trimmed"
+        val looksLikeUrl = !trimmed.contains(" ") && domainPattern.matches(trimmed)
+        if (looksLikeUrl) return "https://$trimmed"
         return searchUrl(trimmed, searchTemplate)
     }
-
     fun translatePage(targetLang: String = "pl") {
         val tab = activeTab() ?: return
         val currentUrl = tab.webView.url ?: tab.url.value
@@ -880,7 +1003,6 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         tab.lastNavigationUrl = translated
         tab.webView.loadUrl(translated)
     }
-
     private fun buildTranslateUrl(original: String, targetLang: String): String? {
         return try {
             val uri = Uri.parse(original)
@@ -895,18 +1017,29 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 .appendQueryParameter("_x_tr_pto", "wapp")
                 .build()
                 .toString()
-        } catch (e: Exception) { null }
+        } catch (e: Exception) {
+            null
+        }
     }
-
     private fun searchUrl(rawInput: String, searchTemplate: String): String {
         val query = Uri.encode(rawInput.trim())
-        return if (searchTemplate.contains("{query}")) searchTemplate.replace("{query}", query) else searchTemplate + query
+        return if (searchTemplate.contains("{query}")) {
+            searchTemplate.replace("{query}", query)
+        } else {
+            searchTemplate + query
+        }
     }
-
-    fun goBack() { activeTab()?.takeIf { it.webView.canGoBack() }?.webView?.goBack() }
-    fun goForward() { activeTab()?.takeIf { it.webView.canGoForward() }?.webView?.goForward() }
-    fun reload() { activeTab()?.webView?.reload() }
-
+    fun goBack() {
+        val tab = activeTab() ?: return
+        if (tab.webView.canGoBack()) tab.webView.goBack()
+    }
+    fun goForward() {
+        val tab = activeTab() ?: return
+        if (tab.webView.canGoForward()) tab.webView.goForward()
+    }
+    fun reload() {
+        activeTab()?.webView?.reload()
+    }
     fun cancelCertificateWarning(tab: BrowserTab) {
         tab.pendingCertError.value?.handler?.let { CertificateInspector.cancelConnection(it) }
         tab.pendingCertError.value = null
@@ -915,19 +1048,25 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         tab.pendingCertError.value?.handler?.let { CertificateInspector.proceedDespiteWarning(it) }
         tab.pendingCertError.value = null
     }
-    fun dismissSecurityWarning(tab: BrowserTab) { tab.securityWarning.value = null }
+    fun dismissSecurityWarning(tab: BrowserTab) {
+        tab.securityWarning.value = null
+    }
     fun openBlockedPopup(tab: BrowserTab) {
         val url = tab.blockedPopupUrl.value ?: return
         tab.blockedPopupUrl.value = null
         createTab(url, select = true, isPrivate = tab.isPrivate)
     }
-    fun dismissBlockedPopup(tab: BrowserTab) { tab.blockedPopupUrl.value = null }
+    fun dismissBlockedPopup(tab: BrowserTab) {
+        tab.blockedPopupUrl.value = null
+    }
     fun exitFullscreenVideo(tab: BrowserTab) {
         tab.customViewCallback?.onCustomViewHidden()
         tab.customView.value = null
         tab.customViewCallback = null
     }
-    fun startFindInPage(tab: BrowserTab) { tab.findInPageActive.value = true }
+    fun startFindInPage(tab: BrowserTab) {
+        tab.findInPageActive.value = true
+    }
     fun stopFindInPage(tab: BrowserTab) {
         tab.findInPageActive.value = false
         tab.findInPageQuery.value = ""
@@ -940,8 +1079,9 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     }
     fun findNext(tab: BrowserTab) = tab.webView.findNext(true)
     fun findPrevious(tab: BrowserTab) = tab.webView.findNext(false)
-
-    private val desktopUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    private val desktopUserAgent =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+            "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     fun toggleDesktopMode(tab: BrowserTab) {
         val enabled = !tab.isDesktopMode.value
         tab.isDesktopMode.value = enabled
@@ -952,11 +1092,11 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         }
         tab.webView.reload()
     }
-
     private fun refreshBookmarkState(tab: BrowserTab) {
-        viewModelScope.launch { tab.isBookmarked.value = bookmarkDao.countByUrl(tab.url.value) > 0 }
+        viewModelScope.launch {
+            tab.isBookmarked.value = bookmarkDao.countByUrl(tab.url.value) > 0
+        }
     }
-
     fun toggleBookmark() {
         val tab = activeTab() ?: return
         viewModelScope.launch {
@@ -964,26 +1104,30 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 bookmarkDao.deleteByUrl(tab.url.value)
                 tab.isBookmarked.value = false
             } else {
-                bookmarkDao.insert(BookmarkEntity(url = tab.url.value, title = tab.title.value, createdAt = System.currentTimeMillis()))
+                bookmarkDao.insert(
+                    BookmarkEntity(url = tab.url.value, title = tab.title.value, createdAt = System.currentTimeMillis())
+                )
                 tab.isBookmarked.value = true
             }
         }
     }
-
     fun removeBookmark(url: String) {
         viewModelScope.launch {
             bookmarkDao.deleteByUrl(url)
             activeTab()?.let { if (it.url.value == url) it.isBookmarked.value = false }
         }
     }
-
-    fun restoreBookmark(entry: BookmarkEntity) { viewModelScope.launch { bookmarkDao.insert(entry) } }
+    fun restoreBookmark(entry: BookmarkEntity) {
+        viewModelScope.launch { bookmarkDao.insert(entry) }
+    }
     fun updateBookmark(id: Long, title: String, folderId: Long?) {
         viewModelScope.launch { bookmarkDao.update(id, title.ifBlank { "Bez nazwy" }, folderId) }
     }
     fun createBookmarkFolder(name: String) {
         if (name.isBlank()) return
-        viewModelScope.launch { bookmarkFolderDao.insert(BookmarkFolderEntity(name = name.trim(), createdAt = System.currentTimeMillis())) }
+        viewModelScope.launch {
+            bookmarkFolderDao.insert(BookmarkFolderEntity(name = name.trim(), createdAt = System.currentTimeMillis()))
+        }
     }
     fun deleteBookmarkFolder(id: Long) {
         viewModelScope.launch {
@@ -994,19 +1138,36 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     fun togglePinnedSite(url: String, title: String) {
         viewModelScope.launch {
             val current = settings.pinnedSites.first()
-            val updated = if (current.any { it.url == url }) current.filterNot { it.url == url } else current + PinnedSite(url, title.ifBlank { url })
+            val updated = if (current.any { it.url == url }) {
+                current.filterNot { it.url == url }
+            } else {
+                current + PinnedSite(url, title.ifBlank { url })
+            }
             settings.setPinnedSites(updated)
         }
     }
-    fun clearHistory() { viewModelScope.launch { historyDao.clear() } }
-    fun deleteHistoryEntry(id: Long) { viewModelScope.launch { historyDao.deleteById(id) } }
-    fun restoreHistoryEntry(entry: HistoryEntity) { viewModelScope.launch { historyDao.insert(entry) } }
-    fun restoreHistoryEntries(entries: List<HistoryEntity>) { viewModelScope.launch { entries.forEach { historyDao.insert(it) } } }
+    fun clearHistory() {
+        viewModelScope.launch { historyDao.clear() }
+    }
+    fun deleteHistoryEntry(id: Long) {
+        viewModelScope.launch { historyDao.deleteById(id) }
+    }
+    fun restoreHistoryEntry(entry: HistoryEntity) {
+        viewModelScope.launch { historyDao.insert(entry) }
+    }
+    fun restoreHistoryEntries(entries: List<HistoryEntity>) {
+        viewModelScope.launch { entries.forEach { historyDao.insert(it) } }
+    }
     fun clearCookiesAndSiteData() {
-        android.webkit.CookieManager.getInstance().apply { removeAllCookies(null); flush() }
+        android.webkit.CookieManager.getInstance().apply {
+            removeAllCookies(null)
+            flush()
+        }
         android.webkit.WebStorage.getInstance().deleteAllData()
     }
-    fun clearBrowserCache() { tabs.forEach { it.webView.clearCache(true) } }
+    fun clearBrowserCache() {
+        tabs.forEach { it.webView.clearCache(true) }
+    }
     fun setTheme(value: AppTheme) = viewModelScope.launch { settings.setTheme(value) }
     fun setSearchEngineUrl(value: String) = viewModelScope.launch { settings.setSearchEngineUrl(value) }
     fun setAdBlockEnabled(value: Boolean) = viewModelScope.launch { settings.setAdBlockEnabled(value) }
@@ -1020,8 +1181,9 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             t.webView.reload()
         }
     }
-
-    private val adBlockRules = mutableStateOf(AdBlockRuleParser.ParsedRules(emptySet(), emptyList(), emptySet(), emptySet()))
+    private val adBlockRules = mutableStateOf(
+        AdBlockRuleParser.ParsedRules(emptySet(), emptyList(), emptySet(), emptySet())
+    )
     private val fallbackAdBlockDomains = setOf(
         "doubleclick.net", "googlesyndication.com", "googleadservices.com",
         "adservice.google.com", "adservice.google.pl", "pagead2.googlesyndication.com",
@@ -1044,24 +1206,32 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         "[id*=\"google_ads\"]", "[class*=\"adsbygoogle\"]", "[id*=\"div-gpt-ad\"]",
         "[class*=\"ad-banner\"]", "[class*=\"ad-container\"]", "[class*=\"advertisement\"]"
     )
-
     private fun isAdHost(host: String?): Boolean {
         if (host == null) return false
         val rules = adBlockRules.value
-        if (rules.exceptions.any { host == it || host.endsWith(".$it") }) return false
-        if (rules.exactDomains.any { host == it || host.endsWith(".$it") }) return true
+        val isException = rules.exceptions.any { host == it || host.endsWith(".$it") }
+        if (isException) return false
+        val exactMatch = rules.exactDomains.any { host == it || host.endsWith(".$it") }
+        if (exactMatch) return true
         if (!adBlockProEnabledCache) return false
         return rules.wildcardPatterns.any { it.matches(host) }
     }
-
     private fun injectCosmeticHiding(view: WebView) {
         val selectors = adBlockRules.value.cosmeticSelectors
         if (selectors.isEmpty()) return
         val css = selectors.joinToString(",") { it.replace("\\", "\\\\").replace("`", "") } + "{display:none!important;}"
-        val js = "(function(){try{var s=document.createElement('style');s.textContent=`$css`;document.documentElement.appendChild(s);}catch(e){}})();"
+        val js = """
+            (function() {
+                try {
+                    var s = document.createElement('style');
+                    s.setAttribute('data-aixe-adblock', '1');
+                    s.textContent = `$css`;
+                    document.documentElement.appendChild(s);
+                } catch (e) {}
+            })();
+        """.trimIndent()
         view.evaluateJavascript(js, null)
     }
-
     private fun startDownload(url: String, contentDisposition: String?, mimeType: String?) {
         val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
         val request = DownloadManager.Request(Uri.parse(url))
@@ -1075,7 +1245,6 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         downloads.add(record)
         pollDownloadProgress(manager, record)
     }
-
     private fun pollDownloadProgress(manager: DownloadManager, record: DownloadRecord) {
         viewModelScope.launch {
             var missingRowStreak = 0
@@ -1109,63 +1278,89 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                                         localUriString?.let { s -> runCatching { Uri.parse(s) }.getOrNull() }
                                     }
                                     justCompletedDownload.value = record
+                                    if (localUriString != null) {
+                                        val customFolder = downloadFolderUriFlow.first()
+                                        if (customFolder != null) {
+                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                                copyDownloadToCustomFolder(
+                                                    sourceUri = Uri.parse(localUriString),
+                                                    fileName = record.fileName,
+                                                    mimeType = record.mimeType,
+                                                    folderUriString = customFolder
+                                                )
+                                            }
+                                        }
+                                    }
                                     return@launch
                                 }
-                                DownloadManager.STATUS_FAILED -> { record.status.value = "Przerwano"; return@launch }
+                                DownloadManager.STATUS_FAILED -> {
+                                    record.status.value = "Przerwano"
+                                    return@launch
+                                }
                                 DownloadManager.STATUS_PAUSED -> record.status.value = "Wstrzymano"
                                 DownloadManager.STATUS_PENDING -> record.status.value = "Oczekiwanie..."
                                 else -> record.status.value = "Pobieranie..."
                             }
-                        } else { missingRowStreak++ }
+                        } else {
+                            missingRowStreak++
+                        }
                     }
                 }
-                if (missingRowStreak >= 5) { record.status.value = "Nieznany błąd"; return@launch }
+                if (missingRowStreak >= 5) {
+                    record.status.value = "Nieznany błąd"
+                    return@launch
+                }
                 delay(600)
             }
         }
     }
-
     fun openDownloadedFile(record: DownloadRecord) {
-        val uri = record.openUri.value ?: run { openSystemDownloadsScreen(); return }
+        val uri = record.openUri.value
+        if (uri == null) {
+            openSystemDownloadsScreen()
+            return
+        }
         try {
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(uri, record.mimeType?.takeIf { it.isNotBlank() } ?: "*/*")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             app.startActivity(intent)
-        } catch (e: Exception) { openSystemDownloadsScreen() }
+        } catch (e: Exception) {
+            openSystemDownloadsScreen()
+        }
     }
     private fun openSystemDownloadsScreen() {
-        try { app.startActivity(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) {}
+        try {
+            app.startActivity(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e: Exception) {
+        }
+    }
+    private fun copyDownloadToCustomFolder(
+        sourceUri: Uri,
+        fileName: String,
+        mimeType: String?,
+        folderUriString: String
+    ) {
+        try {
+            val treeUri = Uri.parse(folderUriString)
+            val treeDocId = android.provider.DocumentsContract.getTreeDocumentId(treeUri)
+            val parentDocUri = android.provider.DocumentsContract.buildDocumentUriUsingTree(treeUri, treeDocId)
+            val newFileUri = android.provider.DocumentsContract.createDocument(
+                app.contentResolver, parentDocUri, mimeType ?: "application/octet-stream", fileName
+            ) ?: return
+            app.contentResolver.openInputStream(sourceUri)?.use { input ->
+                app.contentResolver.openOutputStream(newFileUri)?.use { output ->
+                    input.copyTo(output)
+                }
+            }
+        } catch (e: Exception) {
+        }
     }
 }
 
-// Kolorystyka Material 3
-private val AppLightColors = lightColorScheme(
-    primary = Color(0xFF0066CC),
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFD6E4FF),
-    onPrimaryContainer = Color(0xFF001D36),
-    surface = Color(0xFFFFFFFF),
-    onSurface = Color(0xFF1A1C1E),
-    surfaceVariant = Color(0xFFF2F4F8),
-    onSurfaceVariant = Color(0xFF42474E),
-    outline = Color(0xFF72777F),
-    outlineVariant = Color(0xFFC2C7CF)
-)
-
-private val AppDarkColors = darkColorScheme(
-    primary = Color(0xFF9ECAFF),
-    onPrimary = Color(0xFF00325B),
-    primaryContainer = Color(0xFF00497D),
-    onPrimaryContainer = Color(0xFFD6E4FF),
-    surface = Color(0xFF121316),
-    onSurface = Color(0xFFE2E2E6),
-    surfaceVariant = Color(0xFF1E2024),
-    onSurfaceVariant = Color(0xFFC2C7CF),
-    outline = Color(0xFF8C9199),
-    outlineVariant = Color(0xFF42474E)
-)
+private val LightColors = lightColorScheme(primary = androidx.compose.ui.graphics.Color(0xFF0078D4))
+private val DarkColors = darkColorScheme(primary = androidx.compose.ui.graphics.Color(0xFF429CE3))
 
 @Composable
 fun SuperBrowserTheme(appTheme: AppTheme, content: @Composable () -> Unit) {
@@ -1175,7 +1370,13 @@ fun SuperBrowserTheme(appTheme: AppTheme, content: @Composable () -> Unit) {
         AppTheme.LIGHT -> false
         AppTheme.DARK -> true
     }
-    val colorScheme = if (useDark) AppDarkColors else AppLightColors
+    val context = LocalContext.current
+    val colorScheme = when {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+            if (useDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        useDark -> DarkColors
+        else -> LightColors
+    }
     MaterialTheme(colorScheme = colorScheme, content = content)
 }
 
@@ -1215,40 +1416,102 @@ fun BrowserScreen(
         AppTheme.LIGHT -> false
         AppTheme.DARK -> true
     }
-
     val onTogglePin: (String, String) -> Unit = { url, title ->
         val wasPinned = pinnedSites.any { it.url == url }
         viewModel.togglePinnedSite(url, title)
         scope.launch {
-            snackbarHostState.showSnackbar(if (wasPinned) "Odpięto stronę" else "Przypięto stronę", duration = SnackbarDuration.Short)
+            snackbarHostState.showSnackbar(
+                if (wasPinned) "Odpięto stronę" else "Przypięto stronę",
+                duration = SnackbarDuration.Short
+            )
         }
     }
-
     val addressSuggestions = remember(addressText, addressFocused, history, bookmarks) {
-        if (!addressFocused || addressText.isBlank()) emptyList()
-        else {
+        if (!addressFocused || addressText.isBlank()) {
+            emptyList()
+        } else {
             val query = addressText.trim().lowercase()
-            val fromBookmarks = bookmarks.filter { it.url.lowercase().contains(query) || it.title.lowercase().contains(query) }.map { AddressSuggestion(it.title.ifBlank { it.url }, it.url, true) }
-            val fromHistory = history.filter { it.url.lowercase().contains(query) || it.title.lowercase().contains(query) }.map { AddressSuggestion(it.title.ifBlank { it.url }, it.url, false) }
+            val fromBookmarks = bookmarks
+                .filter { it.url.lowercase().contains(query) || it.title.lowercase().contains(query) }
+                .map { AddressSuggestion(it.title.ifBlank { it.url }, it.url, isBookmark = true) }
+            val fromHistory = history
+                .filter { it.url.lowercase().contains(query) || it.title.lowercase().contains(query) }
+                .map { AddressSuggestion(it.title.ifBlank { it.url }, it.url, isBookmark = false) }
             (fromBookmarks + fromHistory).distinctBy { it.url }.take(5)
         }
     }
-
     val tabListState = rememberLazyListState()
-    val fileChooserLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+    val fileChooserLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
         val callback = viewModel.pendingFileChooserCallback
         viewModel.pendingFileChooserCallback = null
-        val uris = if (result.resultCode == android.app.Activity.RESULT_OK) WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data) else null
+        val uris = if (result.resultCode == android.app.Activity.RESULT_OK) {
+            WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+        } else null
         callback?.onReceiveValue(uris)
     }
-
     LaunchedEffect(viewModel.fileChooserIntent.value) {
         viewModel.fileChooserIntent.value?.let { intent ->
             fileChooserLauncher.launch(intent)
             viewModel.fileChooserIntent.value = null
         }
     }
-
+    val webPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { results ->
+        val request = viewModel.pendingWebPermissionRequest.value
+        viewModel.pendingWebPermissionRequest.value = null
+        if (request != null) {
+            if (results.values.all { it }) request.grant(request.resources) else request.deny()
+        }
+    }
+    LaunchedEffect(viewModel.pendingWebPermissionRequest.value) {
+        val request = viewModel.pendingWebPermissionRequest.value ?: return@LaunchedEffect
+        val androidPermissions = request.resources.mapNotNull { resource ->
+            when (resource) {
+                PermissionRequest.RESOURCE_VIDEO_CAPTURE -> android.Manifest.permission.CAMERA
+                PermissionRequest.RESOURCE_AUDIO_CAPTURE -> android.Manifest.permission.RECORD_AUDIO
+                else -> null
+            }
+        }.distinct()
+        if (androidPermissions.isEmpty()) {
+            request.deny()
+            viewModel.pendingWebPermissionRequest.value = null
+            return@LaunchedEffect
+        }
+        val alreadyGranted = androidPermissions.all {
+            androidx.core.content.ContextCompat.checkSelfPermission(context, it) ==
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
+        if (alreadyGranted) {
+            request.grant(request.resources)
+            viewModel.pendingWebPermissionRequest.value = null
+        } else {
+            webPermissionLauncher.launch(androidPermissions.toTypedArray())
+        }
+    }
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        val geoRequest = viewModel.pendingGeolocationRequest.value
+        viewModel.pendingGeolocationRequest.value = null
+        geoRequest?.callback?.invoke(geoRequest.origin, granted, false)
+    }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
+    LaunchedEffect(viewModel.requestNotificationPermission.value) {
+        if (viewModel.requestNotificationPermission.value) {
+            viewModel.requestNotificationPermission.value = false
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                val granted = ContextCompat.checkSelfPermission(
+                    context, android.Manifest.permission.POST_NOTIFICATIONS
+                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                if (!granted) notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
     val view = LocalView.current
     val isFullscreenVideo = activeTab?.customView?.value != null
     LaunchedEffect(isFullscreenVideo) {
@@ -1261,163 +1524,451 @@ fun BrowserScreen(
             controller.show(WindowInsetsCompat.Type.systemBars())
         }
     }
-
     Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize()) {
-            val isActivePrivate = activeTab?.isPrivate == true
-            
-            AnimatedVisibility(
-                visible = activeTab?.isToolbarVisible?.value != false,
-                enter = slideInVertically(tween(250)) { -it } + fadeIn(tween(200)),
-                exit = slideOutVertically(tween(250)) { -it } + fadeOut(tween(200))
-            ) {
-                Surface(
-                    color = if (isActivePrivate) Color(0xFF1E1E1E) else MaterialTheme.colorScheme.surface,
-                    tonalElevation = 3.dp,
-                    modifier = Modifier.statusBarsPadding()
+    Column(Modifier.fillMaxSize()) {
+        val isActivePrivate = activeTab?.isPrivate == true
+        AnimatedVisibility(
+            visible = activeTab?.isToolbarVisible?.value != false,
+            enter = slideInVertically(tween(200)) { -it } + fadeIn(tween(200)),
+            exit = slideOutVertically(tween(200)) { -it } + fadeOut(tween(150))
+        ) {
+        Surface(
+            tonalElevation = 1.dp,
+            color = if (isActivePrivate) Color(0xFF241033) else MaterialTheme.colorScheme.surface,
+            modifier = Modifier.statusBarsPadding()
+        ) {
+            Column {
+                if (isActivePrivate) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.VisibilityOff,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "Tryb prywatny — historia nie jest zapisywana",
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+                Row(
+                    // 1. Zmiana wysokości paska adresu na 48.dp
+                    Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 6.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
-                        if (isActivePrivate) {
-                            Row(
-                                Modifier.fillMaxWidth().background(Color(0xFF111111)).padding(horizontal = 14.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Default.VisibilityOff, null, tint = Color(0xFF9ECAFF), modifier = Modifier.size(14.dp))
-                                Spacer(Modifier.width(8.dp))
-                                Text("Tryb InPrivate — aktywna sesja poufna", color = Color(0xFFE2E2E6), style = MaterialTheme.typography.labelSmall)
-                            }
+                    CompactIcon(
+                        icon = Icons.AutoMirrored.Filled.ArrowForward,
+                        desc = "Dalej",
+                        enabled = activeTab?.canGoForward?.value == true,
+                        tint = if (isActivePrivate) Color.White else LocalContentColor.current,
+                        onClick = { viewModel.goForward() }
+                    )
+                    CompactIcon(
+                        icon = Icons.Default.Refresh,
+                        desc = "Odśwież",
+                        tint = if (isActivePrivate) Color.White else LocalContentColor.current,
+                        onClick = { viewModel.reload() }
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    AddressSecurityIcon(tab = activeTab)
+                    Spacer(Modifier.width(4.dp))
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .height(34.dp)
+                            // 1. Zmiana RoundedCornerShape na 24.dp
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(
+                                if (isActivePrivate) Color(0xFF3A1750)
+                                else MaterialTheme.colorScheme.surfaceVariant
+                            )
+                            .padding(horizontal = 12.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        if (addressText.isEmpty()) {
+                            Text(
+                                "Wpisz adres lub wyszukaj",
+                                fontSize = 13.sp,
+                                color = if (isActivePrivate) Color.White.copy(alpha = 0.6f)
+                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                            )
                         }
-                        
+                        BasicTextField(
+                            value = addressText,
+                            onValueChange = { addressText = it },
+                            singleLine = true,
+                            textStyle = TextStyle(
+                                fontSize = 13.sp,
+                                color = if (isActivePrivate) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            keyboardActions = KeyboardActions(onDone = {
+                                viewModel.navigate(addressText)
+                                addressFocused = false
+                                focusManager.clearFocus()
+                            }),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .onFocusChanged { addressFocused = it.isFocused }
+                        )
+                    }
+                    Spacer(Modifier.width(2.dp))
+                    CompactIcon(
+                        icon = if (activeTab?.isBookmarked?.value == true) Icons.Default.Star else Icons.Outlined.StarOutline,
+                        desc = "Zakładka",
+                        tint = if (activeTab?.isBookmarked?.value == true) Color(0xFFF2B807)
+                        else if (isActivePrivate) Color.White else LocalContentColor.current,
+                        onClick = { viewModel.toggleBookmark() }
+                    )
+                    CompactIcon(
+                        icon = Icons.Default.MoreVert,
+                        desc = "Menu",
+                        tint = if (isActivePrivate) Color.White else LocalContentColor.current,
+                        onClick = { menuOpen = true }
+                    )
+                }
+            if (activeTab?.findInPageActive?.value == true) {
+                val findFocusRequester = remember { FocusRequester() }
+                LaunchedEffect(activeTab.id) { findFocusRequester.requestFocus() }
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .height(34.dp)
+                            .clip(RoundedCornerShape(17.dp))
+                            .background(
+                                if (isActivePrivate) Color(0xFF3A1750)
+                                else MaterialTheme.colorScheme.surfaceVariant
+                            )
+                            .padding(horizontal = 12.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        if (activeTab.findInPageQuery.value.isEmpty()) {
+                            Text(
+                                "Znajdź na stronie",
+                                fontSize = 13.sp,
+                                color = if (isActivePrivate) Color.White.copy(alpha = 0.6f)
+                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                            )
+                        }
+                        BasicTextField(
+                            value = activeTab.findInPageQuery.value,
+                            onValueChange = { viewModel.updateFindInPageQuery(activeTab, it) },
+                            singleLine = true,
+                            textStyle = TextStyle(
+                                fontSize = 13.sp,
+                                color = if (isActivePrivate) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            keyboardActions = KeyboardActions(onDone = { viewModel.findNext(activeTab) }),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .focusRequester(findFocusRequester)
+                        )
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    if (activeTab.findInPageQuery.value.isNotEmpty()) {
+                        Text(
+                            text = if (activeTab.findInPageMatchCount.value > 0)
+                                "${activeTab.findInPageActiveIndex.value + 1}/${activeTab.findInPageMatchCount.value}"
+                            else "0/0",
+                            fontSize = 12.sp,
+                            color = if (isActivePrivate) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 4.dp)
+                        )
+                    }
+                    CompactIcon(
+                        icon = Icons.Default.KeyboardArrowUp,
+                        desc = "Poprzednie",
+                        tint = if (isActivePrivate) Color.White else LocalContentColor.current,
+                        onClick = { viewModel.findPrevious(activeTab) }
+                    )
+                    CompactIcon(
+                        icon = Icons.Default.KeyboardArrowDown,
+                        desc = "Następne",
+                        tint = if (isActivePrivate) Color.White else LocalContentColor.current,
+                        onClick = { viewModel.findNext(activeTab) }
+                    )
+                    CompactIcon(
+                        icon = Icons.Default.Close,
+                        desc = "Zamknij wyszukiwanie",
+                        tint = if (isActivePrivate) Color.White else LocalContentColor.current,
+                        onClick = { viewModel.stopFindInPage(activeTab) }
+                    )
+                }
+            }
+            if (addressSuggestions.isNotEmpty()) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(if (isActivePrivate) Color(0xFF2B1338) else MaterialTheme.colorScheme.surface)
+                ) {
+                    addressSuggestions.forEach { suggestion ->
                         Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    addressText = suggestion.url
+                                    viewModel.navigate(suggestion.url)
+                                    addressFocused = false
+                                    focusManager.clearFocus()
+                                }
+                                .padding(horizontal = 16.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            CompactIcon(Icons.AutoMirrored.Filled.ArrowForward, "Dalej", activeTab?.canGoForward?.value == true) { viewModel.goForward() }
-                            CompactIcon(Icons.Default.Refresh, "Odśwież", true) { viewModel.reload() }
-                            Spacer(Modifier.width(4.dp))
-                            AddressSecurityIcon(activeTab)
-                            Spacer(Modifier.width(6.dp))
-                            Box(
-                                Modifier
-                                    .weight(1f)
-                                    .height(40.dp)
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(if (isActivePrivate) Color(0xFF2C2C2C) else MaterialTheme.colorScheme.surfaceVariant)
-                                    .border(1.dp, if (addressFocused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(20.dp))
-                                    .padding(horizontal = 14.dp),
-                                contentAlignment = Alignment.CenterStart
-                            ) {
-                                if (addressText.isEmpty()) {
-                                    Text("Wyszukaj lub wpisz adres", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                                BasicTextField(
-                                    value = addressText,
-                                    onValueChange = { addressText = it },
-                                    singleLine = true,
-                                    textStyle = TextStyle(fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface),
-                                    keyboardActions = KeyboardActions(onDone = {
-                                        viewModel.navigate(addressText)
-                                        addressFocused = false
-                                        focusManager.clearFocus()
-                                    }),
-                                    modifier = Modifier.fillMaxWidth().onFocusChanged { addressFocused = it.isFocused }
+                            Icon(
+                                imageVector = if (suggestion.isBookmark) Icons.Default.Star else Icons.Default.History,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = if (suggestion.isBookmark) Color(0xFFF2B807)
+                                else if (isActivePrivate) Color.White.copy(alpha = 0.7f)
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    suggestion.title,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (isActivePrivate) Color.White else MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    suggestion.url,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (isActivePrivate) Color.White.copy(alpha = 0.6f)
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            Spacer(Modifier.width(4.dp))
-                            CompactIcon(
-                                icon = if (activeTab?.isBookmarked?.value == true) Icons.Default.Star else Icons.Outlined.StarOutline,
-                                desc = "Zakładka",
-                                tint = if (activeTab?.isBookmarked?.value == true) Color(0xFFFFB900) else LocalContentColor.current
-                            ) { viewModel.toggleBookmark() }
-                            CompactIcon(Icons.Default.MoreVert, "Menu", true) { menuOpen = true }
                         }
-
-                        if (addressSuggestions.isNotEmpty()) {
-                            Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
-                                addressSuggestions.forEach { suggestion ->
-                                    Row(
-                                        Modifier.fillMaxWidth().clickable {
-                                            addressText = suggestion.url
-                                            viewModel.navigate(suggestion.url)
-                                            addressFocused = false
-                                            focusManager.clearFocus()
-                                        }.padding(horizontal = 16.dp, vertical = 10.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(if (suggestion.isBookmark) Icons.Default.Star else Icons.Default.History, null, modifier = Modifier.size(16.dp), tint = if (suggestion.isBookmark) Color(0xFFFFB900) else MaterialTheme.colorScheme.onSurfaceVariant)
-                                        Spacer(Modifier.width(12.dp))
-                                        Column(Modifier.weight(1f)) {
-                                            Text(suggestion.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
-                                            Text(suggestion.url, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        }
+                        HorizontalDivider()
+                    }
+                }
+            }
+            if (activeTab?.isLoading?.value == true) {
+                val progress = activeTab.loadProgress.value.coerceIn(0f, 1f)
+                val loadingPreset = remember(newTabGradientId) {
+                    gradientPresets.find { it.id == newTabGradientId } ?: gradientPresets.first()
+                }
+                val loadingGradientColors = if (isActivePrivate) loadingPreset.privateColors else loadingPreset.normalColors
+                val loadingBarBrush = if (loadingGradientColors.isNotEmpty()) {
+                    Brush.horizontalGradient(loadingGradientColors)
+                } else {
+                    val solidColor = if (isDarkTheme) Color.White else Color.Black
+                    Brush.horizontalGradient(listOf(solidColor, solidColor))
+                }
+                Box(Modifier.fillMaxWidth().height(3.dp).background(MaterialTheme.colorScheme.surfaceVariant)) {
+                    Box(
+                        Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(fraction = progress)
+                            .background(loadingBarBrush)
+                    )
+                }
+            }
+            activeTab?.securityWarning?.value?.let { warning ->
+                Surface(color = MaterialTheme.colorScheme.errorContainer) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            warning,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(
+                            onClick = { viewModel.dismissSecurityWarning(activeTab) },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = "Zamknij", modifier = Modifier.size(14.dp))
+                        }
+                    }
+                }
+            }
+            activeTab?.blockedPopupUrl?.value?.let {
+                Surface(color = MaterialTheme.colorScheme.tertiaryContainer) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.OpenInNew,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "Strona chciała otworzyć wyskakujące okienko",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = { viewModel.openBlockedPopup(activeTab) }) { Text("Otwórz") }
+                        IconButton(
+                            onClick = { viewModel.dismissBlockedPopup(activeTab) },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = "Zamknij", modifier = Modifier.size(14.dp))
+                        }
+                    }
+                }
+            }
+            }
+        }
+        }
+        Box(Modifier.fillMaxSize().weight(1f)) {
+            activeTab?.let { tab ->
+              if (tab.isNewTabPage.value) {
+                StartPageContent(
+                    isPrivate = tab.isPrivate,
+                    isDarkTheme = isDarkTheme,
+                    frequentSites = frequentSites,
+                    pinnedSites = pinnedSites,
+                    gradientId = newTabGradientId,
+                    fact = viewModel.dailyFact,
+                    onSiteClick = { clickedUrl ->
+                        addressText = clickedUrl
+                        viewModel.navigate(clickedUrl)
+                    },
+                    onOpenPrivateTab = {
+                        viewModel.createTab("", select = true, isPrivate = true, showStartPage = true)
+                    },
+                    onTogglePin = onTogglePin
+                )
+              } else {
+                WebViewContainer(webView = tab.webView, modifier = Modifier.fillMaxSize())
+                tab.pageError.value?.let { err ->
+                    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                        Column(
+                            Modifier.fillMaxSize().padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = if (err.isHttpError) Icons.Default.ErrorOutline else Icons.Default.WifiOff,
+                                contentDescription = null,
+                                modifier = Modifier.size(56.dp),
+                                tint = MaterialTheme.colorScheme.outline
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Text(err.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                err.message,
+                                style = MaterialTheme.typography.bodyMedium,
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(20.dp))
+                            Button(onClick = {
+                                tab.pageError.value = null
+                                tab.webView.reload()
+                            }) { Text("Spróbuj ponownie") }
+                            if (err.isHttpError) {
+                                Spacer(Modifier.height(8.dp))
+                                TextButton(onClick = { tab.pageError.value = null }) {
+                                    Text("Pokaż stronę mimo to")
+                                }
+                            }
+                        }
+                    }
+                }
+              }
+            }
+            if (activeTab == null) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        "Kliknij + aby dodać kartę",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+        Surface(tonalElevation = 3.dp) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 4.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                LazyRow(
+                    Modifier.weight(1f),
+                    state = tabListState,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    items(viewModel.tabs, key = { it.id }) { tab ->
+                        TabChip(
+                            tab = tab,
+                            selected = tab.id == viewModel.activeTabId.value,
+                            onSelect = { viewModel.selectTab(tab.id) },
+                            onClose = {
+                                val canUndo = tab.url.value.isNotBlank() && !tab.isPrivate
+                                viewModel.closeTab(tab.id)
+                                if (canUndo) {
+                                    scope.launch {
+                                        val result = snackbarHostState.showSnackbar(
+                                            message = "Zamknięto kartę",
+                                            actionLabel = "Cofnij",
+                                            duration = SnackbarDuration.Short
+                                        )
+                                        if (result == SnackbarResult.ActionPerformed) viewModel.restoreLastClosedTab()
                                     }
                                 }
                             }
-                        }
-
-                        if (activeTab?.isLoading?.value == true) {
-                            val progress = activeTab.loadProgress.value.coerceIn(0f, 1f)
-                            LinearProgressIndicator(
-                                progress = { progress },
-                                modifier = Modifier.fillMaxWidth().height(3.dp),
-                                color = MaterialTheme.colorScheme.primary,
-                                trackColor = Color.Transparent
-                            )
-                        }
-                    }
-                }
-            }
-
-            Box(Modifier.fillMaxSize().weight(1f)) {
-                activeTab?.let { tab ->
-                    if (tab.isNewTabPage.value) {
-                        StartPageContent(
-                            isPrivate = tab.isPrivate,
-                            isDarkTheme = isDarkTheme,
-                            frequentSites = frequentSites,
-                            pinnedSites = pinnedSites,
-                            gradientId = newTabGradientId,
-                            fact = viewModel.dailyFact,
-                            onSiteClick = { clickedUrl ->
-                                addressText = clickedUrl
-                                viewModel.navigate(clickedUrl)
-                            },
-                            onOpenPrivateTab = { viewModel.createTab("", select = true, isPrivate = true, showStartPage = true) },
-                            onTogglePin = onTogglePin
                         )
-                    } else {
-                        WebViewContainer(webView = tab.webView, modifier = Modifier.fillMaxSize())
                     }
                 }
-            }
-
-            Surface(
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 3.dp,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 8.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    LazyRow(Modifier.weight(1f), state = tabListState, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(viewModel.tabs, key = { it.id }) { tab ->
-                            TabChip(tab = tab, selected = tab.id == viewModel.activeTabId.value, onSelect = { viewModel.selectTab(tab.id) }) {
-                                viewModel.closeTab(tab.id)
-                            }
-                        }
-                    }
-                    IconButton(onClick = { viewModel.createTab("", showStartPage = true) }, modifier = Modifier.size(40.dp)) {
-                        Icon(Icons.Default.Add, "Nowa karta", modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.primary)
-                    }
+                IconButton(onClick = { viewModel.createTab("", showStartPage = true) }, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Default.Add, contentDescription = "Nowa karta", modifier = Modifier.size(20.dp))
                 }
             }
         }
-
+    }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = 52.dp)
+        )
+        activeTab?.customView?.value?.let { customView ->
+            AndroidView(
+                factory = { customView },
+                modifier = Modifier.fillMaxSize().background(Color.Black)
+            )
+        }
         if (menuOpen) {
-            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)).clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { menuOpen = false })
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.35f))
+                    .clickable(
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() }
+                    ) { menuOpen = false }
+            )
         }
-        
         AnimatedVisibility(
             visible = menuOpen,
             enter = fadeIn(tween(180)) + expandVertically(tween(220), expandFrom = Alignment.Top),
@@ -1426,18 +1977,43 @@ fun BrowserScreen(
         ) {
             val currentUrl = activeTab?.url?.value.orEmpty()
             val isCurrentPinned = currentUrl.isNotBlank() && pinnedSites.any { it.url == currentUrl }
-            
             TopSlideMenu(
+                isDesktopMode = activeTab?.isDesktopMode?.value == true,
+                isCurrentPinned = isCurrentPinned,
+                hasCurrentUrl = currentUrl.isNotBlank(),
                 tabCount = viewModel.tabs.size,
+                blockedAdsCount = activeTab?.adsBlockedCount?.value ?: 0,
                 dataSaverEnabled = dataSaverEnabled,
                 onShare = {
                     if (currentUrl.isNotBlank()) {
-                        val shareIntent = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, currentUrl) }
-                        context.startActivity(Intent.createChooser(shareIntent, "Udostępnij"))
+                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, currentUrl)
+                        }
+                        context.startActivity(Intent.createChooser(shareIntent, "Udostępnij przez"))
                     }
                 },
+                onCopyLink = {
+                    if (currentUrl.isNotBlank()) {
+                        clipboardManager.setText(AnnotatedString(currentUrl))
+                        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) {
+                            scope.launch { snackbarHostState.showSnackbar("Skopiowano link") }
+                        }
+                    }
+                },
+                onFind = { activeTab?.let { viewModel.startFindInPage(it) } },
+                onToggleDesktop = { activeTab?.let { viewModel.toggleDesktopMode(it) } },
+                onTogglePinClick = { onTogglePin(currentUrl, activeTab?.title?.value ?: currentUrl) },
                 onTranslate = { viewModel.translatePage() },
                 onNewPrivateTab = { viewModel.createTab("", select = true, isPrivate = true, showStartPage = true) },
+                onRestoreClosedTab = { viewModel.restoreLastClosedTab() },
+                onToggleDataSaver = { viewModel.setDataSaverEnabled(!dataSaverEnabled) },
+                onShowTabs = {
+                    scope.launch {
+                        val idx = viewModel.tabs.indexOfFirst { it.id == viewModel.activeTabId.value }
+                        if (idx >= 0) tabListState.animateScrollToItem(idx)
+                    }
+                },
                 onOpenHistory = onOpenHistory,
                 onOpenBookmarks = onOpenBookmarks,
                 onOpenDownloads = onOpenDownloads,
@@ -1446,22 +2022,119 @@ fun BrowserScreen(
             )
         }
     }
+    activeTab?.pendingCertError?.value?.let { warning ->
+        AlertDialog(
+            onDismissRequest = { },
+            icon = { Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Niezaufane połączenie") },
+            text = {
+                Column {
+                    Text(warning.errorDescription, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(8.dp))
+                    Text("Adres: ${warning.url}", style = MaterialTheme.typography.bodySmall)
+                    Text("Wydany dla: ${warning.issuedTo}", style = MaterialTheme.typography.bodySmall)
+                    Text("Wystawca: ${warning.issuedBy}", style = MaterialTheme.typography.bodySmall)
+                    Text("Ważność: ${warning.validFrom} – ${warning.validUntil}", style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.cancelCertificateWarning(activeTab) }) {
+                    Text("Wróć do bezpiecznej strony")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.proceedDespiteCertificateWarning(activeTab) }) {
+                    Text("Kontynuuj mimo to", color = MaterialTheme.colorScheme.error)
+                }
+            }
+        )
+    }
+    viewModel.pendingGeolocationRequest.value?.let { geoRequest ->
+        AlertDialog(
+            onDismissRequest = {
+                geoRequest.callback.invoke(geoRequest.origin, false, false)
+                viewModel.pendingGeolocationRequest.value = null
+            },
+            icon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
+            title = { Text("Dostęp do lokalizacji") },
+            text = { Text("${geoRequest.origin} prosi o dostęp do Twojej lokalizacji.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    val alreadyGranted = androidx.core.content.ContextCompat.checkSelfPermission(
+                        context, android.Manifest.permission.ACCESS_FINE_LOCATION
+                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                    if (alreadyGranted) {
+                        geoRequest.callback.invoke(geoRequest.origin, true, false)
+                        viewModel.pendingGeolocationRequest.value = null
+                    } else {
+                        locationPermissionLauncher.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
+                    }
+                }) { Text("Zezwól") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    geoRequest.callback.invoke(geoRequest.origin, false, false)
+                    viewModel.pendingGeolocationRequest.value = null
+                }) { Text("Odmów") }
+            }
+        )
+    }
+    viewModel.justCompletedDownload.value?.let { record ->
+        AlertDialog(
+            onDismissRequest = { viewModel.justCompletedDownload.value = null },
+            icon = { Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+            title = { Text("Pobrano plik") },
+            text = { Text("${record.fileName} — czy chcesz przejść do lokalizacji pliku?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.openDownloadedFile(record)
+                    viewModel.justCompletedDownload.value = null
+                }) { Text("Otwórz") }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.justCompletedDownload.value = null }) { Text("Zamknij") }
+            }
+        )
+    }
+    BackHandler(enabled = activeTab?.canGoBack?.value == true && !isFullscreenVideo) {
+        viewModel.goBack()
+    }
+    BackHandler(enabled = isFullscreenVideo) {
+        activeTab?.let { viewModel.exitFullscreenVideo(it) }
+    }
 }
 
 @Composable
-private fun CompactIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String, enabled: Boolean = true, tint: Color = LocalContentColor.current, onClick: () -> Unit) {
-    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(36.dp)) {
-        Icon(icon, desc, tint = if (enabled) tint else tint.copy(alpha = 0.3f), modifier = Modifier.size(20.dp))
+private fun CompactIcon(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    desc: String,
+    enabled: Boolean = true,
+    tint: Color = LocalContentColor.current,
+    onClick: () -> Unit
+) {
+    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(34.dp)) {
+        Icon(icon, contentDescription = desc, tint = if (enabled) tint else tint.copy(alpha = 0.3f), modifier = Modifier.size(19.dp))
     }
 }
 
 @Composable
 private fun TopSlideMenu(
+    isDesktopMode: Boolean,
+    isCurrentPinned: Boolean,
+    hasCurrentUrl: Boolean,
     tabCount: Int,
+    blockedAdsCount: Int,
     dataSaverEnabled: Boolean,
     onShare: () -> Unit,
+    onCopyLink: () -> Unit,
+    onFind: () -> Unit,
+    onToggleDesktop: () -> Unit,
+    onTogglePinClick: () -> Unit,
     onTranslate: () -> Unit,
     onNewPrivateTab: () -> Unit,
+    onRestoreClosedTab: () -> Unit,
+    onToggleDataSaver: () -> Unit,
+    onShowTabs: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenBookmarks: () -> Unit,
     onOpenDownloads: () -> Unit,
@@ -1469,70 +2142,177 @@ private fun TopSlideMenu(
     onDismiss: () -> Unit
 ) {
     fun act(action: () -> Unit): () -> Unit = { action(); onDismiss() }
-    
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 8.dp,
+            .padding(horizontal = 10.dp)
+            .padding(top = 6.dp),
+        shape = RoundedCornerShape(22.dp),
+        tonalElevation = 6.dp,
         shadowElevation = 12.dp
     ) {
-        Column(Modifier.padding(vertical = 8.dp)) {
-            MenuRow("Karty ($tabCount)", Icons.Default.Tab, act { })
-            MenuRow("Historia", Icons.Default.History, act(onOpenHistory))
-            MenuRow("Ulubione i zakładki", Icons.Default.Star, act(onOpenBookmarks))
-            MenuRow("Pobrane pliki", Icons.Default.Download, act(onOpenDownloads))
-            
-            HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
-            
-            MenuRow("Przetłumacz stronę", Icons.Default.Translate, act(onTranslate))
-            MenuRow("Nowa karta InPrivate", Icons.Default.VisibilityOff, act(onNewPrivateTab))
-            MenuRow("Udostępnij link", Icons.Default.Share, act(onShare))
-            
-            HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
-            
-            MenuRow("Ustawienia AiXE", Icons.Default.Settings, act(onOpenSettings))
+        Column(Modifier.padding(vertical = 14.dp)) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                QuickActionButton(Icons.Default.Share, "Udostępnij", onClick = act(onShare))
+                QuickActionButton(Icons.Default.ContentCopy, "Kopiuj link", onClick = act(onCopyLink))
+                QuickActionButton(Icons.Default.Search, "Znajdź", onClick = act(onFind))
+                if (hasCurrentUrl) {
+                    QuickActionButton(
+                        icon = if (isCurrentPinned) Icons.Default.PushPin else Icons.Outlined.PushPin,
+                        label = if (isCurrentPinned) "Odepnij" else "Przypnij",
+                        onClick = act(onTogglePinClick)
+                    )
+                }
+                QuickActionButton(
+                    icon = Icons.Default.Computer,
+                    label = if (isDesktopMode) "Mobilna" else "Komputer",
+                    onClick = act(onToggleDesktop)
+                )
+                QuickActionButton(
+                    icon = if (dataSaverEnabled) Icons.Default.DataSaverOn else Icons.Default.DataSaverOff,
+                    label = if (dataSaverEnabled) "Oszcz. wł." else "Oszczędzanie",
+                    onClick = act(onToggleDataSaver)
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider()
+            MenuRow(Icons.Default.Tab, "Karty ($tabCount)", onClick = act(onShowTabs))
+            if (blockedAdsCount > 0) {
+                MenuRow(Icons.Default.Shield, "Zablokowane reklamy: $blockedAdsCount", onClick = onDismiss)
+            }
+            MenuRow(Icons.Default.Translate, "Przetłumacz stronę", onClick = act(onTranslate))
+            MenuRow(Icons.Default.VisibilityOff, "Nowa karta prywatna", onClick = act(onNewPrivateTab))
+            MenuRow(Icons.Default.Restore, "Przywróć zamkniętą kartę", onClick = act(onRestoreClosedTab))
+            HorizontalDivider()
+            MenuRow(Icons.Default.History, "Historia", onClick = act(onOpenHistory))
+            MenuRow(Icons.Default.Star, "Zakładki", onClick = act(onOpenBookmarks))
+            MenuRow(Icons.Default.Download, "Pobrane", onClick = act(onOpenDownloads))
+            HorizontalDivider()
+            MenuRow(Icons.Default.Settings, "Ustawienia", onClick = act(onOpenSettings))
         }
     }
 }
 
 @Composable
-private fun MenuRow(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+private fun QuickActionButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+    Column(
+        Modifier
+            .width(68.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Spacer(Modifier.height(5.dp))
+        Text(
+            label,
+            fontSize = 10.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun MenuRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    onClick: () -> Unit
+) {
     Row(
         Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 20.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-        Spacer(Modifier.width(16.dp))
-        Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+        Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(18.dp))
+        Text(label, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
 @Composable
 private fun AddressSecurityIcon(tab: BrowserTab?) {
     val url = tab?.url?.value.orEmpty()
-    val icon = if (url.startsWith("https://", ignoreCase = true)) Icons.Default.Lock else Icons.Default.Public
-    Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+    val hasWarning = tab?.securityWarning?.value != null
+    val icon: androidx.compose.ui.graphics.vector.ImageVector
+    val tint: Color
+    val description: String?
+    when {
+        hasWarning -> {
+            icon = Icons.Default.Warning
+            tint = MaterialTheme.colorScheme.error
+            description = "Ostrzeżenie bezpieczeństwa"
+        }
+        url.startsWith("https://", ignoreCase = true) -> {
+            icon = Icons.Default.Lock
+            tint = MaterialTheme.colorScheme.primary
+            description = "Połączenie zaszyfrowane"
+        }
+        url.startsWith("http://", ignoreCase = true) -> {
+            icon = Icons.Default.LockOpen
+            tint = MaterialTheme.colorScheme.error
+            description = "Połączenie niezaszyfrowane"
+        }
+        else -> {
+            icon = Icons.Default.Public
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            description = null
+        }
+    }
+    Icon(
+        imageVector = icon,
+        contentDescription = description,
+        tint = tint,
+        modifier = Modifier.size(16.dp)
+    )
 }
 
 @Composable
-private fun QuickShortcutChip(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, hasGradient: Boolean, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
-        color = if (hasGradient) Color.White.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant,
-        tonalElevation = 2.dp
+private fun QuickShortcutChip(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    hasGradient: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(if (hasGradient) Color.White.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = if (hasGradient) Color.White else MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = if (hasGradient) Color.White else MaterialTheme.colorScheme.onSurface)
-        }
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = if (hasGradient) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.labelLarge,
+            color = if (hasGradient) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -1551,83 +2331,233 @@ private fun StartPageContent(
     val preset = remember(gradientId) { gradientPresets.find { it.id == gradientId } ?: gradientPresets.first() }
     val gradientColors = if (isPrivate) preset.privateColors else preset.normalColors
     val hasGradient = gradientColors.isNotEmpty()
-    val textColor = if (hasGradient || isPrivate) Color.White else MaterialTheme.colorScheme.onSurface
-    val tileBackground = if (hasGradient) Color.White.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant
-
+    val textColor = if (hasGradient) Color.White else if (isPrivate) Color.White else MaterialTheme.colorScheme.onSurface
+    val subtleColor = if (hasGradient) Color.White.copy(alpha = 0.75f)
+        else if (isPrivate) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant
+    val tileBackground = if (hasGradient) Color.White.copy(alpha = 0.18f)
+        else if (isPrivate) Color(0xFF3A1750) else MaterialTheme.colorScheme.surfaceVariant
+    val darkNoGradientBackground = Color(0xFF0B1530)
     val backgroundModifier = when {
         hasGradient -> Modifier.background(Brush.verticalGradient(gradientColors))
-        isPrivate -> Modifier.background(Color(0xFF141414))
-        isDarkTheme -> Modifier.background(Color(0xFF121316))
-        else -> Modifier.background(MaterialTheme.colorScheme.surface)
+        isPrivate -> Modifier.background(Color(0xFF1A0B26))
+        isDarkTheme -> Modifier.background(darkNoGradientBackground)
+        else -> Modifier.background(MaterialTheme.colorScheme.background)
     }
-
     Column(
-        Modifier.fillMaxSize().then(backgroundModifier).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 36.dp),
+        Modifier
+            .fillMaxSize()
+            .then(backgroundModifier)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.primary),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.Public, null, tint = Color.White, modifier = Modifier.size(22.dp))
+        // 4. Zmiana rozmiarów Logo na stronie startowej
+        Row(verticalAlignment = Alignment.Bottom) {
+            if (isPrivate) {
+                Icon(
+                    Icons.Default.VisibilityOff,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(30.dp).padding(bottom = 3.dp)
+                )
+                Spacer(Modifier.width(8.dp))
             }
-            Spacer(Modifier.width(12.dp))
-            Text("AiXE Browser", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = textColor)
+            Text(
+                "AiXE",
+                fontSize = 52.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 0.5.sp,
+                color = if (hasGradient || isPrivate) Color.White else MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                "browser",
+                fontSize = 30.sp,
+                fontWeight = FontWeight.Light,
+                color = (if (hasGradient || isPrivate) Color.White else MaterialTheme.colorScheme.primary).copy(alpha = 0.75f)
+            )
         }
-
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(14.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             if (!isPrivate) {
-                QuickShortcutChip(Icons.Default.VisibilityOff, "InPrivate", hasGradient, onOpenPrivateTab)
+                QuickShortcutChip(
+                    icon = Icons.Default.VisibilityOff,
+                    label = "Prywatne",
+                    hasGradient = hasGradient,
+                    onClick = onOpenPrivateTab
+                )
             }
-            QuickShortcutChip(Icons.Default.Newspaper, "Wiadomości", hasGradient) { onSiteClick("https://news.google.com") }
+            QuickShortcutChip(
+                icon = Icons.Default.Newspaper,
+                label = "Wiadomości",
+                hasGradient = hasGradient,
+                onClick = { onSiteClick("https://news.google.com/?hl=pl&gl=PL&ceid=PL:pl") }
+            )
         }
-
         Spacer(Modifier.height(28.dp))
-
         var searchText by remember { mutableStateOf("") }
         val keyboardController = LocalSoftwareKeyboardController.current
-
+        fun submitSearch() {
+            if (searchText.isNotBlank()) {
+                onSiteClick(searchText)
+                keyboardController?.hide()
+            }
+        }
         Row(
-            Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(26.dp)).background(if (hasGradient) Color.White.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant).padding(horizontal = 8.dp),
+            Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+                .clip(RoundedCornerShape(26.dp))
+                .background(if (hasGradient) Color.White.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant)
+                .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = { if (searchText.isNotBlank()) { onSiteClick(searchText); keyboardController?.hide() } }, modifier = Modifier.size(36.dp)) {
-                Icon(Icons.Default.Search, "Szukaj", tint = textColor, modifier = Modifier.size(20.dp))
+            IconButton(onClick = { submitSearch() }, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    Icons.Default.Search,
+                    contentDescription = "Szukaj",
+                    tint = if (hasGradient) Color.White.copy(alpha = 0.9f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
             }
-            Spacer(Modifier.width(4.dp))
+            Spacer(Modifier.width(2.dp))
             Box(Modifier.weight(1f)) {
                 if (searchText.isEmpty()) {
-                    Text("Wyszukaj lub wpisz adres sieci Web", fontSize = 14.sp, color = textColor.copy(alpha = 0.6f))
+                    Text(
+                        "Wyszukaj lub wpisz adres",
+                        fontSize = 15.sp,
+                        color = if (hasGradient) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
                 }
                 BasicTextField(
                     value = searchText,
                     onValueChange = { searchText = it },
                     singleLine = true,
-                    textStyle = TextStyle(fontSize = 14.sp, color = textColor),
-                    keyboardActions = KeyboardActions(onDone = { if (searchText.isNotBlank()) { onSiteClick(searchText); keyboardController?.hide() } }),
+                    textStyle = TextStyle(
+                        fontSize = 15.sp,
+                        color = if (hasGradient) Color.White else MaterialTheme.colorScheme.onSurface
+                    ),
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(if (hasGradient) Color.White else MaterialTheme.colorScheme.primary),
+                    keyboardActions = KeyboardActions(onDone = { submitSearch() }),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
+            if (searchText.isNotEmpty()) {
+                IconButton(onClick = { searchText = "" }, modifier = Modifier.size(32.dp)) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = "Wyczyść",
+                        tint = if (hasGradient) Color.White.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                Spacer(Modifier.width(6.dp))
+            }
+        }
+        Spacer(Modifier.height(28.dp))
+        
+        // 6. Sekcja przypiętych stron
+        val pinnedAsTiles = remember(pinnedSites, frequentSites) {
+            pinnedSites.map { pinned ->
+                FrequentSite(
+                    url = pinned.url,
+                    title = pinned.title,
+                    visitCount = 0,
+                    faviconBase64 = frequentSites.find { it.url == pinned.url }?.faviconBase64
+                )
+            }
+        }
+        if (pinnedAsTiles.isNotEmpty()) {
+            Text(
+                "Przypięte",
+                style = MaterialTheme.typography.labelLarge,
+                color = textColor,
+                modifier = Modifier.align(Alignment.Start)
+            )
+            Spacer(Modifier.height(14.dp))
+            TileGrid(
+                sites = pinnedAsTiles,
+                isPinnedSection = true,
+                background = tileBackground,
+                textColor = textColor,
+                onClick = onSiteClick,
+                onLongClick = { url, title -> onTogglePin(url, title) }
+            )
+            Spacer(Modifier.height(14.dp))
         }
 
-        Spacer(Modifier.height(32.dp))
-
-        if (frequentSites.isNotEmpty()) {
-            Text("Najczęściej odwiedzane", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = textColor, modifier = Modifier.align(Alignment.Start))
-            Spacer(Modifier.height(12.dp))
-            TileGrid(frequentSites, false, tileBackground, textColor, onSiteClick, onTogglePin)
+        if (frequentSites.isEmpty()) {
+            if (pinnedAsTiles.isEmpty()) {
+                Text(
+                    "Ostatnio odwiedzane strony pojawią się tutaj",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = subtleColor,
+                    textAlign = TextAlign.Center
+                )
+            }
+        } else {
+            Text(
+                "Ostatnio odwiedzane",
+                style = MaterialTheme.typography.labelLarge,
+                color = textColor,
+                modifier = Modifier.align(Alignment.Start)
+            )
+            Spacer(Modifier.height(14.dp))
+            TileGrid(
+                sites = frequentSites,
+                isPinnedSection = false,
+                background = tileBackground,
+                textColor = textColor,
+                onClick = onSiteClick,
+                onLongClick = { url, title -> onTogglePin(url, title) }
+            )
+        }
+        Spacer(Modifier.height(24.dp))
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(if (hasGradient || isPrivate) Color.White.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceVariant)
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.Lightbulb,
+                contentDescription = null,
+                tint = if (hasGradient || isPrivate) Color.White.copy(alpha = 0.9f) else MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text = fact,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (hasGradient || isPrivate) Color.White.copy(alpha = 0.9f) else MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
 
 @Composable
-private fun TileGrid(sites: List<FrequentSite>, isPinnedSection: Boolean, background: Color, textColor: Color, onClick: (String) -> Unit, onLongClick: (url: String, title: String) -> Unit) {
+private fun TileGrid(
+    sites: List<FrequentSite>,
+    isPinnedSection: Boolean,
+    background: Color,
+    textColor: Color,
+    onClick: (String) -> Unit,
+    onLongClick: (url: String, title: String) -> Unit
+) {
     sites.chunked(4).forEach { row ->
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             row.forEach { site ->
-                FrequentSiteTile(site, background, textColor, isPinnedSection, { onClick(site.url) }, { onLongClick(site.url, site.title) }, Modifier.weight(1f))
+                FrequentSiteTile(
+                    site = site,
+                    background = background,
+                    textColor = textColor,
+                    isPinned = isPinnedSection,
+                    onClick = { onClick(site.url) },
+                    onLongClick = { onLongClick(site.url, site.title) },
+                    modifier = Modifier.weight(1f)
+                )
             }
             repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
         }
@@ -1637,47 +2567,179 @@ private fun TileGrid(sites: List<FrequentSite>, isPinnedSection: Boolean, backgr
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun FrequentSiteTile(site: FrequentSite, background: Color, textColor: Color, isPinned: Boolean, onClick: () -> Unit, onLongClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun FrequentSiteTile(
+    site: FrequentSite,
+    background: Color,
+    textColor: Color,
+    isPinned: Boolean = false,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
     val host = remember(site.url) { runCatching { Uri.parse(site.url).host }.getOrNull() ?: site.url }
-    Column(modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick), horizontalAlignment = Alignment.CenterHorizontally) {
+    val faviconBitmap = remember(site.faviconBase64) {
+        site.faviconBase64?.let { encoded ->
+            try {
+                val bytes = android.util.Base64.decode(encoded, android.util.Base64.NO_WRAP)
+                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+    Column(
+        modifier
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         Box(
-            Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)).background(background),
+            Modifier
+                // 3. Zmiana rozmiarów kafelek na 72.dp i RoundedCornerShape na 20.dp
+                .size(72.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(background),
             contentAlignment = Alignment.Center
         ) {
-            Text(host.removePrefix("www.").take(1).uppercase(), fontWeight = FontWeight.Bold, fontSize = 20.sp, color = textColor)
+            // 5. Obsługa favicon zamiast liter
+            if (site.faviconBase64 != null) {
+                val bitmap = remember(site.faviconBase64) {
+                    try {
+                        val bytes = android.util.Base64.decode(
+                            site.faviconBase64,
+                            android.util.Base64.DEFAULT
+                        )
+                        android.graphics.BitmapFactory
+                            .decodeByteArray(
+                                bytes,
+                                0,
+                                bytes.size
+                            )
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+                bitmap?.let {
+                    androidx.compose.foundation.Image(
+                        bitmap = it.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+            } else {
+                Text(
+                    host.take(1).uppercase(),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                    color = textColor
+                )
+            }
+            if (isPinned) {
+                Box(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = 3.dp, y = (-3).dp)
+                        .size(16.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.PushPin,
+                        contentDescription = "Przypięte",
+                        tint = Color.White,
+                        modifier = Modifier.size(10.dp)
+                    )
+                }
+            }
         }
-        Spacer(Modifier.height(6.dp))
-        Text(host.removePrefix("www."), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, color = textColor)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = host.removePrefix("www."),
+            fontSize = 11.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            color = textColor
+        )
     }
 }
 
 @Composable
 private fun WebViewContainer(webView: WebView, modifier: Modifier = Modifier) {
-    AndroidView(modifier = modifier, factory = { FrameLayout(it) }, update = { frame ->
-        if (frame.childCount == 0 || frame.getChildAt(0) !== webView) {
-            frame.removeAllViews()
-            (webView.parent as? ViewGroup)?.removeView(webView)
-            frame.addView(webView, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+    AndroidView(
+        modifier = modifier,
+        factory = { FrameLayout(it) },
+        update = { frame ->
+            if (frame.childCount == 0 || frame.getChildAt(0) !== webView) {
+                frame.removeAllViews()
+                (webView.parent as? ViewGroup)?.removeView(webView)
+                frame.addView(
+                    webView,
+                    ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                )
+            }
         }
-    })
+    )
 }
 
 @Composable
 private fun TabChip(tab: BrowserTab, selected: Boolean, onSelect: () -> Unit, onClose: () -> Unit) {
+    val chipColor = when {
+        tab.isPrivate && selected -> Color(0xFF5B2A78)
+        tab.isPrivate -> Color(0xFF2B1338)
+        selected -> MaterialTheme.colorScheme.primaryContainer
+        else -> MaterialTheme.colorScheme.surfaceVariant
+    }
+    val chipContentColor = if (tab.isPrivate) Color.White else LocalContentColor.current
     Surface(
-        color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.height(38.dp).widthIn(min = 110.dp, max = 160.dp)
+        color = chipColor,
+        // 2. Zmiana RoundedCornerShape na 18.dp
+        shape = RoundedCornerShape(18.dp),
+        // 2. Zmiana Modifier.height na 44.dp oraz widthIn na min = 130.dp, max = 200.dp
+        modifier = Modifier.height(44.dp).widthIn(min = 130.dp, max = 200.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Row(
-                modifier = Modifier.weight(1f).fillMaxHeight().clickable(onClick = onSelect).padding(start = 12.dp, end = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clickable(onClick = onSelect)
+                    .padding(start = 10.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Text(tab.title.value, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 12.sp, modifier = Modifier.weight(1f, fill = false))
+                val favicon: Bitmap? = tab.favicon.value
+                when {
+                    tab.isPrivate -> Icon(
+                        Icons.Default.VisibilityOff,
+                        contentDescription = null,
+                        tint = chipContentColor,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    favicon != null -> androidx.compose.foundation.Image(
+                        bitmap = favicon.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    else -> Icon(Icons.Default.Public, contentDescription = null, modifier = Modifier.size(14.dp))
+                }
+                Text(
+                    text = tab.title.value,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    fontSize = 12.sp,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                    color = chipContentColor,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
             }
-            IconButton(onClick = onClose, modifier = Modifier.size(28.dp)) {
-                Icon(Icons.Default.Close, "Zamknij", modifier = Modifier.size(14.dp))
+            IconButton(onClick = onClose, modifier = Modifier.size(28.dp).padding(end = 2.dp)) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = "Zamknij kartę",
+                    tint = chipContentColor,
+                    modifier = Modifier.size(14.dp)
+                )
             }
         }
     }
@@ -1690,15 +2752,19 @@ fun HistoryScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit,
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var confirmingClearAll by remember { mutableStateOf(false) }
-
+    val sections = remember(history) {
+        history.groupBy { dayBucketLabel(it.visitedAt) }
+            .toList()
+            .sortedBy { (label, _) -> when (label) { "Dziś" -> 0; "Wczoraj" -> 1; else -> 2 } }
+    }
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Historia przeglądania", fontWeight = FontWeight.SemiBold) },
+                title = { Text("Historia") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) } },
                 actions = {
                     if (history.isNotEmpty()) {
-                        TextButton(onClick = { confirmingClearAll = true }) { Text("Wyczyść wszystko") }
+                        TextButton(onClick = { confirmingClearAll = true }) { Text("Wyczyść") }
                     }
                 }
             )
@@ -1707,27 +2773,51 @@ fun HistoryScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit,
     ) { padding ->
         if (history.isEmpty()) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("Brak historii", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        Icons.Default.History,
+                        contentDescription = null,
+                        modifier = Modifier.size(40.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Text("Brak historii przeglądania", style = MaterialTheme.typography.bodyMedium)
+                }
             }
         } else {
-            LazyColumn(Modifier.padding(padding).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 12.dp)) {
-                items(history, key = { it.id }) { entry ->
-                    ElevatedCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
-                        Row(Modifier.fillMaxWidth().clickable { onNavigate(entry.url); onBack() }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.History, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(12.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(entry.title.ifBlank { entry.url }, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                                Text(entry.url, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            IconButton(onClick = {
+            LazyColumn(
+                Modifier
+                    .padding(padding)
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(vertical = 12.dp)
+            ) {
+                sections.forEach { (label, entries) ->
+                    item(key = "header_$label") {
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+                        )
+                    }
+                    items(entries, key = { it.id }) { entry ->
+                        HistoryEntryCard(
+                            entry = entry,
+                            onClick = { onNavigate(entry.url); onBack() },
+                            onDelete = {
                                 viewModel.deleteHistoryEntry(entry.id)
                                 scope.launch {
-                                    val res = snackbarHostState.showSnackbar("Usunięto wpis", "Cofnij")
-                                    if (res == SnackbarResult.ActionPerformed) viewModel.restoreHistoryEntry(entry)
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = "Usunięto z historii",
+                                        actionLabel = "Cofnij",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                    if (result == SnackbarResult.ActionPerformed) viewModel.restoreHistoryEntry(entry)
                                 }
-                            }) { Icon(Icons.Default.Close, "Usuń", modifier = Modifier.size(16.dp)) }
-                        }
+                            }
+                        )
                     }
                 }
             }
@@ -1736,11 +2826,234 @@ fun HistoryScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit,
     if (confirmingClearAll) {
         AlertDialog(
             onDismissRequest = { confirmingClearAll = false },
-            title = { Text("Wyczyścić historię?") },
-            confirmButton = { TextButton(onClick = { confirmingClearAll = false; viewModel.clearHistory() }) { Text("Wyczyść", color = MaterialTheme.colorScheme.error) } },
-            dismissButton = { TextButton(onClick = { confirmingClearAll = false }) { Text("Anuluj") } }
+            title = { Text("Wyczyścić całą historię?") },
+            text = { Text("Będzie można to cofnąć przez chwilę po wyczyszczeniu.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmingClearAll = false
+                    val backup = history
+                    viewModel.clearHistory()
+                    scope.launch {
+                        val result = snackbarHostState.showSnackbar(
+                            message = "Wyczyszczono historię",
+                            actionLabel = "Cofnij",
+                            duration = SnackbarDuration.Short
+                        )
+                        if (result == SnackbarResult.ActionPerformed) viewModel.restoreHistoryEntries(backup)
+                    }
+                }) { Text("Wyczyść", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmingClearAll = false }) { Text("Anuluj") }
+            }
         )
     }
+}
+
+private fun dayBucketLabel(timestamp: Long): String {
+    fun startOfDay(millis: Long): Long {
+        val c = java.util.Calendar.getInstance()
+        c.timeInMillis = millis
+        c.set(java.util.Calendar.HOUR_OF_DAY, 0)
+        c.set(java.util.Calendar.MINUTE, 0)
+        c.set(java.util.Calendar.SECOND, 0)
+        c.set(java.util.Calendar.MILLISECOND, 0)
+        return c.timeInMillis
+    }
+    val diffDays = (startOfDay(System.currentTimeMillis()) - startOfDay(timestamp)) / (24 * 60 * 60 * 1000L)
+    return when (diffDays) {
+        0L -> "Dziś"
+        1L -> "Wczoraj"
+        else -> "Wcześniej"
+    }
+}
+
+@Composable
+private fun HistoryEntryCard(entry: HistoryEntity, onClick: () -> Unit, onDelete: () -> Unit) {
+    val formatter = remember { SimpleDateFormat("dd.MM HH:mm", Locale.getDefault()) }
+    val host = remember(entry.url) { runCatching { Uri.parse(entry.url).host }.getOrNull()?.removePrefix("www.") ?: entry.url }
+    val faviconBitmap = remember(entry.faviconBase64) {
+        entry.faviconBase64?.let { encoded ->
+            try {
+                val bytes = android.util.Base64.decode(encoded, android.util.Base64.NO_WRAP)
+                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+    ) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                if (faviconBitmap != null) {
+                    androidx.compose.foundation.Image(
+                        bitmap = faviconBitmap,
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp)
+                    )
+                } else {
+                    Text(
+                        text = host.take(1).uppercase(),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    entry.title.ifBlank { host },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(Modifier.height(2.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        host,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    Text(
+                        " · ${formatter.format(Date(entry.visitedAt))}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Spacer(Modifier.width(4.dp))
+            IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = "Usuń z historii",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+    }
+}
+
+private enum class SimpleSortOption(val label: String) {
+    NEWEST("Najnowsze"), OLDEST("Najstarsze"), NAME_ASC("Nazwa A-Z")
+}
+
+@Composable
+private fun <T> SearchAndSortRow(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    searchPlaceholder: String,
+    sortOptions: List<Pair<String, T>>,
+    selectedSort: T,
+    onSortSelected: (T) -> Unit
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            Modifier
+                .weight(1f)
+                .height(44.dp)
+                .clip(RoundedCornerShape(22.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.Search,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.width(8.dp))
+            Box(Modifier.weight(1f)) {
+                if (query.isEmpty()) {
+                    Text(
+                        searchPlaceholder,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                }
+                BasicTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    singleLine = true,
+                    textStyle = TextStyle(fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface),
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQueryChange("") }, modifier = Modifier.size(24.dp)) {
+                    Icon(Icons.Default.Close, contentDescription = "Wyczyść", modifier = Modifier.size(14.dp))
+                }
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+        var sortMenuOpen by remember { mutableStateOf(false) }
+        Box {
+            IconButton(
+                onClick = { sortMenuOpen = true },
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Icon(Icons.Default.Sort, contentDescription = "Sortuj")
+            }
+            DropdownMenu(expanded = sortMenuOpen, onDismissRequest = { sortMenuOpen = false }) {
+                sortOptions.forEach { (label, value) ->
+                    DropdownMenuItem(
+                        text = { Text(label) },
+                        trailingIcon = {
+                            if (value == selectedSort) {
+                                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                            }
+                        },
+                        onClick = {
+                            onSortSelected(value)
+                            sortMenuOpen = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun formatBytes(bytes: Long): String {
+    if (bytes <= 0) return ""
+    val units = arrayOf("B", "KB", "MB", "GB")
+    var value = bytes.toDouble()
+    var unitIdx = 0
+    while (value >= 1024 && unitIdx < units.lastIndex) {
+        value /= 1024
+        unitIdx++
+    }
+    return if (unitIdx == 0) "${value.toInt()} ${units[unitIdx]}" else String.format(Locale.getDefault(), "%.1f %s", value, units[unitIdx])
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1748,35 +3061,324 @@ fun HistoryScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit,
 fun BookmarksScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit, onNavigate: (String) -> Unit) {
     val bookmarks by viewModel.bookmarksFlow.collectAsState(initial = emptyList())
     val folders by viewModel.bookmarkFoldersFlow.collectAsState(initial = emptyList())
-    
+    var query by remember { mutableStateOf("") }
+    var sortOption by remember { mutableStateOf(SimpleSortOption.NEWEST) }
+    var selectedFolder by remember { mutableStateOf<FolderFilter>(FolderFilter.All) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(folders) {
+        val f = selectedFolder
+        if (f is FolderFilter.Specific && folders.none { it.id == f.id }) selectedFolder = FolderFilter.All
+    }
+    val folderFiltered = remember(bookmarks, selectedFolder) {
+        when (val f = selectedFolder) {
+            FolderFilter.All -> bookmarks
+            FolderFilter.Unfiled -> bookmarks.filter { it.folderId == null }
+            is FolderFilter.Specific -> bookmarks.filter { it.folderId == f.id }
+        }
+    }
+    val filteredSorted = remember(folderFiltered, query, sortOption) {
+        val filtered = if (query.isBlank()) folderFiltered
+            else folderFiltered.filter { it.title.contains(query, ignoreCase = true) || it.url.contains(query, ignoreCase = true) }
+        when (sortOption) {
+            SimpleSortOption.NEWEST -> filtered.sortedByDescending { it.createdAt }
+            SimpleSortOption.OLDEST -> filtered.sortedBy { it.createdAt }
+            SimpleSortOption.NAME_ASC -> filtered.sortedBy { it.title.ifBlank { it.url }.lowercase() }
+        }
+    }
+    val sortOptionsList = remember {
+        SimpleSortOption.values().map { it.label to it }
+    }
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Ulubione i zakładki", fontWeight = FontWeight.SemiBold) },
+                title = { Text("Zakładki") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) } }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        if (bookmarks.isEmpty() && folders.isEmpty()) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("Brak zakładek", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(Modifier.padding(padding).fillMaxSize()) {
+            if (bookmarks.isNotEmpty() || folders.isNotEmpty()) {
+                FolderChipsRow(
+                    folders = folders,
+                    selected = selectedFolder,
+                    onSelect = { selectedFolder = it },
+                    onCreateFolder = { name -> viewModel.createBookmarkFolder(name) },
+                    onDeleteFolder = { id ->
+                        viewModel.deleteBookmarkFolder(id)
+                        selectedFolder = FolderFilter.All
+                    }
+                )
             }
-        } else {
-            LazyColumn(Modifier.padding(padding).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 12.dp)) {
-                items(bookmarks, key = { it.id }) { entry ->
-                    ElevatedCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
-                        Row(Modifier.fillMaxWidth().clickable { onNavigate(entry.url); onBack() }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Star, null, tint = Color(0xFFFFB900), modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(12.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(entry.title.ifBlank { entry.url }, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                                Text(entry.url, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            IconButton(onClick = { viewModel.removeBookmark(entry.url) }) { Icon(Icons.Default.Close, "Usuń", modifier = Modifier.size(16.dp)) }
+            if (bookmarks.isNotEmpty()) {
+                SearchAndSortRow(
+                    query = query,
+                    onQueryChange = { query = it },
+                    searchPlaceholder = "Szukaj w zakładkach",
+                    sortOptions = sortOptionsList,
+                    selectedSort = sortOption,
+                    onSortSelected = { sortOption = it }
+                )
+            }
+            when {
+                bookmarks.isEmpty() -> EmptyStateMessage(icon = Icons.Default.Star, message = "Brak zakładek")
+                filteredSorted.isEmpty() -> EmptyStateMessage(icon = Icons.Default.SearchOff, message = "Brak wyników")
+                else -> LazyColumn(
+                    Modifier.padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(bottom = 12.dp)
+                ) {
+                    items(filteredSorted, key = { it.id }) { entry ->
+                        BookmarkCard(
+                            entry = entry,
+                            folders = folders,
+                            onClick = { onNavigate(entry.url); onBack() },
+                            onDelete = {
+                                viewModel.removeBookmark(entry.url)
+                                scope.launch {
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = "Usunięto zakładkę",
+                                        actionLabel = "Cofnij",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                    if (result == SnackbarResult.ActionPerformed) viewModel.restoreBookmark(entry)
+                                }
+                            },
+                            onEdit = { title, folderId -> viewModel.updateBookmark(entry.id, title, folderId) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private sealed class FolderFilter {
+    object All : FolderFilter()
+    object Unfiled : FolderFilter()
+    data class Specific(val id: Long, val name: String) : FolderFilter()
+}
+
+@Composable
+private fun FolderChipsRow(
+    folders: List<BookmarkFolderEntity>,
+    selected: FolderFilter,
+    onSelect: (FolderFilter) -> Unit,
+    onCreateFolder: (String) -> Unit,
+    onDeleteFolder: (Long) -> Unit
+) {
+    var creatingFolder by remember { mutableStateOf(false) }
+    var newFolderName by remember { mutableStateOf("") }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        FilterChip(selected = selected is FolderFilter.All, onClick = { onSelect(FolderFilter.All) }, label = { Text("Wszystkie") })
+        FilterChip(selected = selected is FolderFilter.Unfiled, onClick = { onSelect(FolderFilter.Unfiled) }, label = { Text("Bez folderu") })
+        folders.forEach { folder ->
+            FilterChip(
+                selected = selected is FolderFilter.Specific && selected.id == folder.id,
+                onClick = { onSelect(FolderFilter.Specific(folder.id, folder.name)) },
+                label = { Text(folder.name) }
+            )
+        }
+        AssistChip(
+            onClick = { creatingFolder = true },
+            label = { Text("Nowy folder") },
+            leadingIcon = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp)) }
+        )
+        val selectedSpecific = selected as? FolderFilter.Specific
+        if (selectedSpecific != null) {
+            IconButton(onClick = { onDeleteFolder(selectedSpecific.id) }, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Default.DeleteOutline, contentDescription = "Usuń folder \"${selectedSpecific.name}\"", modifier = Modifier.size(18.dp))
+            }
+        }
+    }
+    if (creatingFolder) {
+        AlertDialog(
+            onDismissRequest = { creatingFolder = false; newFolderName = "" },
+            title = { Text("Nowy folder") },
+            text = {
+                OutlinedTextField(
+                    value = newFolderName,
+                    onValueChange = { newFolderName = it },
+                    singleLine = true,
+                    label = { Text("Nazwa folderu") }
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onCreateFolder(newFolderName)
+                        creatingFolder = false
+                        newFolderName = ""
+                    },
+                    enabled = newFolderName.isNotBlank()
+                ) { Text("Utwórz") }
+            },
+            dismissButton = {
+                TextButton(onClick = { creatingFolder = false; newFolderName = "" }) { Text("Anuluj") }
+            }
+        )
+    }
+}
+
+@Composable
+private fun BookmarkCard(
+    entry: BookmarkEntity,
+    folders: List<BookmarkFolderEntity>,
+    onClick: () -> Unit,
+    onDelete: () -> Unit,
+    onEdit: (title: String, folderId: Long?) -> Unit
+) {
+    val host = remember(entry.url) { runCatching { Uri.parse(entry.url).host }.getOrNull()?.removePrefix("www.") ?: entry.url }
+    var editing by remember { mutableStateOf(false) }
+    val folderName = remember(entry.folderId, folders) { folders.find { it.id == entry.folderId }?.name }
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+    ) {
+        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFF2B807), modifier = Modifier.size(20.dp))
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    entry.title.ifBlank { host },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(Modifier.height(2.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        host,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (folderName != null) {
+                        Text(
+                            " · $folderName",
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.width(2.dp))
+            IconButton(onClick = { editing = true }, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    Icons.Default.Edit,
+                    contentDescription = "Edytuj zakładkę",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(15.dp)
+                )
+            }
+            IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = "Usuń zakładkę",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+    }
+    if (editing) {
+        BookmarkEditDialog(
+            initialTitle = entry.title,
+            initialFolderId = entry.folderId,
+            folders = folders,
+            onDismiss = { editing = false },
+            onSave = { title, folderId ->
+                onEdit(title, folderId)
+                editing = false
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BookmarkEditDialog(
+    initialTitle: String,
+    initialFolderId: Long?,
+    folders: List<BookmarkFolderEntity>,
+    onDismiss: () -> Unit,
+    onSave: (String, Long?) -> Unit
+) {
+    var title by remember { mutableStateOf(initialTitle) }
+    var folderId by remember { mutableStateOf(initialFolderId) }
+    var folderMenuOpen by remember { mutableStateOf(false) }
+    val folderLabel = folders.find { it.id == folderId }?.name ?: "Bez folderu"
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edytuj zakładkę") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    singleLine = true,
+                    label = { Text("Nazwa") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(12.dp))
+                Box {
+                    OutlinedButton(onClick = { folderMenuOpen = true }, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(folderLabel)
+                    }
+                    DropdownMenu(expanded = folderMenuOpen, onDismissRequest = { folderMenuOpen = false }) {
+                        DropdownMenuItem(text = { Text("Bez folderu") }, onClick = { folderId = null; folderMenuOpen = false })
+                        folders.forEach { f ->
+                            DropdownMenuItem(text = { Text(f.name) }, onClick = { folderId = f.id; folderMenuOpen = false })
                         }
                     }
                 }
             }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(title, folderId) }, enabled = title.isNotBlank()) { Text("Zapisz") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Anuluj") }
+        }
+    )
+}
+
+@Composable
+private fun EmptyStateMessage(icon: androidx.compose.ui.graphics.vector.ImageVector, message: String) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                icon,
+                contentDescription = null,
+                modifier = Modifier.size(40.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            )
+            Spacer(Modifier.height(10.dp))
+            Text(message, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
         }
     }
 }
@@ -1784,35 +3386,49 @@ fun BookmarksScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Uni
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit) {
+    var query by remember { mutableStateOf("") }
+    var sortOption by remember { mutableStateOf(SimpleSortOption.NEWEST) }
+    val filteredSorted = (if (query.isBlank()) viewModel.downloads.toList()
+        else viewModel.downloads.filter { it.fileName.contains(query, ignoreCase = true) })
+        .let { list ->
+            when (sortOption) {
+                SimpleSortOption.NEWEST -> list.sortedByDescending { it.startedAt }
+                SimpleSortOption.OLDEST -> list.sortedBy { it.startedAt }
+                SimpleSortOption.NAME_ASC -> list.sortedBy { it.fileName.lowercase() }
+            }
+        }
+    val sortOptionsList = remember {
+        SimpleSortOption.values().map { it.label to it }
+    }
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Pobrane pliki", fontWeight = FontWeight.SemiBold) },
+                title = { Text("Pobrane pliki") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) } }
             )
         }
     ) { padding ->
-        if (viewModel.downloads.isEmpty()) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("Brak pobranych plików w tej sesji", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(Modifier.padding(padding).fillMaxSize()) {
+            if (viewModel.downloads.isNotEmpty()) {
+                SearchAndSortRow(
+                    query = query,
+                    onQueryChange = { query = it },
+                    searchPlaceholder = "Szukaj pobranych plików",
+                    sortOptions = sortOptionsList,
+                    selectedSort = sortOption,
+                    onSortSelected = { sortOption = it }
+                )
             }
-        } else {
-            LazyColumn(Modifier.padding(padding).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 12.dp)) {
-                items(viewModel.downloads, key = { it.downloadManagerId }) { record ->
-                    ElevatedCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
-                        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Download, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-                            Spacer(Modifier.width(12.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(record.fileName, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                                Text(record.status.value, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            if (record.status.value == "Ukończono") {
-                                IconButton(onClick = { viewModel.openDownloadedFile(record) }) {
-                                    Icon(Icons.Default.OpenInNew, "Otwórz", tint = MaterialTheme.colorScheme.primary)
-                                }
-                            }
-                        }
+            when {
+                viewModel.downloads.isEmpty() -> EmptyStateMessage(icon = Icons.Default.Download, message = "Brak pobrań w tej sesji")
+                filteredSorted.isEmpty() -> EmptyStateMessage(icon = Icons.Default.SearchOff, message = "Brak wyników dla „$query”")
+                else -> LazyColumn(
+                    Modifier.padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(bottom = 12.dp)
+                ) {
+                    items(filteredSorted, key = { it.downloadManagerId }) { record ->
+                        DownloadCard(record = record, onOpen = { viewModel.openDownloadedFile(record) })
                     }
                 }
             }
@@ -1820,7 +3436,148 @@ fun DownloadsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Uni
     }
 }
 
-// PROFESJONALNY EKRAN USTAWIEN (Styl profesjonalnej przeglądarki pulpitowej / Windows 11 Settings)
+@Composable
+private fun DownloadCard(record: DownloadRecord, onOpen: () -> Unit) {
+    val progress by record.progress
+    val status by record.status
+    val totalBytes by record.totalBytes
+    val openUri by record.openUri
+    val isDone = status == "Ukończono"
+    val isFailed = status == "Przerwano" || status == "Nieznany błąd"
+    val isActive = !isDone && !isFailed
+    ElevatedCard(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(
+                        when {
+                            isFailed -> MaterialTheme.colorScheme.errorContainer
+                            isDone -> MaterialTheme.colorScheme.primaryContainer
+                            else -> MaterialTheme.colorScheme.surfaceVariant
+                        }
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = when {
+                        isFailed -> Icons.Default.ErrorOutline
+                        isDone -> Icons.Default.InsertDriveFile
+                        else -> Icons.Default.Download
+                    },
+                    contentDescription = null,
+                    tint = when {
+                        isFailed -> MaterialTheme.colorScheme.error
+                        isDone -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    record.fileName,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(Modifier.height(4.dp))
+                if (isActive) {
+                    LinearProgressIndicator(
+                        progress = { progress / 100f },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                    )
+                    Spacer(Modifier.height(3.dp))
+                }
+                Text(
+                    text = buildString {
+                        append(status)
+                        if (isActive) append(" · $progress%")
+                        val sizeLabel = formatBytes(totalBytes)
+                        if (sizeLabel.isNotEmpty()) append(" · $sizeLabel")
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (isFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (isDone && openUri != null) {
+                Spacer(Modifier.width(8.dp))
+                IconButton(onClick = onOpen, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Default.OpenInNew, contentDescription = "Otwórz plik", tint = MaterialTheme.colorScheme.primary)
+                }
+            }
+        }
+    }
+}
+
+private val searchEnginePresets: List<Pair<String, String?>> = listOf(
+    "Google" to "https://www.google.com/search?q={query}",
+    "Bing" to "https://www.bing.com/search?q={query}",
+    "DuckDuckGo" to "https://duckduckgo.com/?q={query}",
+    "Brave Search" to "https://search.brave.com/search?q={query}",
+    "Ecosia" to "https://www.ecosia.org/search?q={query}",
+    "Startpage" to "https://www.startpage.com/sp/search?query={query}",
+    "Własny adres" to null
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PresetDropdown(
+    options: List<Pair<String, String?>>,
+    selectedValue: String,
+    onOptionSelected: (String?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedLabel = options.find { it.second == selectedValue }?.first
+        ?: options.last().first
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = selectedLabel,
+            onValueChange = {},
+            readOnly = true,
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .menuAnchor()
+                .fillMaxWidth()
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { (label, value) ->
+                DropdownMenuItem(
+                    text = { Text(label) },
+                    onClick = {
+                        onOptionSelected(value)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsSectionCard(
+    title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.height(14.dp))
+            content()
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit) {
@@ -1830,10 +3587,10 @@ fun SettingsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit
     val adBlockEnabled by viewModel.adBlockEnabledFlow.collectAsState(initial = true)
     val adBlockProEnabled by viewModel.adBlockProEnabledFlow.collectAsState(initial = true)
     val downloadFolderUri by viewModel.downloadFolderUriFlow.collectAsState(initial = null)
+    val newTabGradientId by viewModel.newTabGradientIdFlow.collectAsState(initial = "none")
     var searchEngineText by remember(currentSearchEngine) { mutableStateOf(currentSearchEngine) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-
     val folderPickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
@@ -1845,209 +3602,338 @@ fun SettingsScreen(viewModel: BrowserViewModel = viewModel(), onBack: () -> Unit
             viewModel.setDownloadFolderUri(uri.toString())
         }
     }
-
     fun saveSearchEngine(url: String) {
         val saved = url.ifBlank { "https://www.google.com/search?q={query}" }
         viewModel.setSearchEngineUrl(saved)
         searchEngineText = saved
-        scope.launch { snackbarHostState.showSnackbar("Zapisano domyślną wyszukiwarkę") }
+        scope.launch { snackbarHostState.showSnackbar("Zapisano wyszukiwarkę") }
     }
-
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Ustawienia AiXE", fontWeight = FontWeight.Bold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) } },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+                title = { Text("Ustawienia") },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) } }
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         Column(
             Modifier
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(16.dp)
+                .fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Sekcja: Wygląd
-            SettingCategoryHeader("Wygląd i interfejs", Icons.Default.Palette)
-            Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(Modifier.padding(16.dp)) {
-                    Text("Motyw aplikacji", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = currentTheme == AppTheme.SYSTEM, onClick = { viewModel.setTheme(AppTheme.SYSTEM) }, label = { Text("Systemowy") })
-                        FilterChip(selected = currentTheme == AppTheme.LIGHT, onClick = { viewModel.setTheme(AppTheme.LIGHT) }, label = { Text("Jasny") })
-                        FilterChip(selected = currentTheme == AppTheme.DARK, onClick = { viewModel.setTheme(AppTheme.DARK) }, label = { Text("Ciemny") })
-                    }
+            SettingsSectionCard(title = "Wygląd", icon = Icons.Default.Palette) {
+                Text("Motyw aplikacji", style = MaterialTheme.typography.labelLarge)
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ThemeOption("Systemowy", currentTheme == AppTheme.SYSTEM) { viewModel.setTheme(AppTheme.SYSTEM) }
+                    ThemeOption("Jasny", currentTheme == AppTheme.LIGHT) { viewModel.setTheme(AppTheme.LIGHT) }
+                    ThemeOption("Ciemny", currentTheme == AppTheme.DARK) { viewModel.setTheme(AppTheme.DARK) }
                 }
-            }
-
-            // Sekcja: Wyszukiwanie
-            SettingCategoryHeader("Wyszukiwanie i adres", Icons.Default.Search)
-            Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(Modifier.padding(16.dp)) {
-                    Text("Domyślna wyszukiwarka", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(8.dp))
-                    
-                    val searchEnginePresets = listOf(
-                        "Google" to "https://www.google.com/search?q={query}",
-                        "Bing" to "https://www.bing.com/search?q={query}",
-                        "DuckDuckGo" to "https://duckduckgo.com/?q={query}",
-                        "Brave Search" to "https://search.brave.com/search?q={query}",
-                        "Ecosia" to "https://www.ecosia.org/search?q={query}",
-                        "Startpage" to "https://www.startpage.com/sp/search?query={query}",
-                        "Własny adres" to null
-                    )
-
-                    searchEnginePresets.forEach { (label, value) ->
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    if (value != null) saveSearchEngine(value) else searchEngineText = ""
-                                }
-                                .padding(vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = (value != null && currentSearchEngine == value) || (value == null && searchEnginePresets.none { it.second == currentSearchEngine }),
-                                onClick = {
-                                    if (value != null) saveSearchEngine(value) else searchEngineText = ""
-                                }
-                            )
-                            Spacer(Modifier.width(12.dp))
-                            Text(label, style = MaterialTheme.typography.bodyMedium)
-                        }
-                    }
-
-                    if (searchEnginePresets.none { it.second == currentSearchEngine }) {
-                        Spacer(Modifier.height(8.dp))
-                        Text("Wprowadź adres URL z parametrem {query}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.height(6.dp))
-                        OutlinedTextField(
-                            value = searchEngineText,
-                            onValueChange = { searchEngineText = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            label = { Text("Szablon wyszukiwania") }
+                Spacer(Modifier.height(18.dp))
+                Text("Tło nowej karty", style = MaterialTheme.typography.labelLarge)
+                Text(
+                    "Gradient na ekranie skrótów nowej karty (używany też jako kolor paska ładowania). Bez gradientu, w ciemnym motywie tło jest ciemnoniebieskie, a pasek ładowania biały; w jasnym motywie pasek jest czarny. Tryb prywatny używa własnego, ciemniejszego wariantu.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    gradientPresets.forEach { preset ->
+                        GradientSwatch(
+                            preset = preset,
+                            selected = preset.id == newTabGradientId,
+                            onClick = { viewModel.setNewTabGradientId(preset.id) }
                         )
-                        Spacer(Modifier.height(8.dp))
-                        Button(onClick = { saveSearchEngine(searchEngineText) }, enabled = searchEngineText.isNotBlank()) {
-                            Text("Zapisz wyszukiwarkę")
-                        }
                     }
                 }
             }
 
-            // Sekcja: Prywatność i Ochrona
-            SettingCategoryHeader("Prywatność i ochrona", Icons.Default.Shield)
-            Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(Modifier.padding(16.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Blokowanie reklam (AdBlock)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                            Text("Blokuje skrypty śledzące i reklamy", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Switch(checked = adBlockEnabled, onCheckedChange = { viewModel.setAdBlockEnabled(it) })
+            SettingsSectionCard(title = "Wyszukiwanie i przeglądanie", icon = Icons.Default.Search) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Blokowanie reklam", style = MaterialTheme.typography.labelLarge)
+                        Text(
+                            "Podstawowe filtrowanie znanych domen reklamowych",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
-                    HorizontalDivider(Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Tryb AdBlock PRO", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                            Text("Automatyczne usuwanie pustych kontenerów CSS", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Switch(checked = adBlockProEnabled, onCheckedChange = { viewModel.setAdBlockProEnabled(it) }, enabled = adBlockEnabled)
-                    }
+                    Switch(checked = adBlockEnabled, onCheckedChange = { viewModel.setAdBlockEnabled(it) })
                 }
-            }
-
-            // Sekcja: Pobieranie
-            SettingCategoryHeader("Pobieranie plików", Icons.Default.Download)
-            Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(Modifier.padding(16.dp)) {
-                    Text("Lokalizacja pobierania", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(10.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Blokowanie reklam PRO", style = MaterialTheme.typography.labelLarge)
+                            Spacer(Modifier.width(6.dp))
+                            Surface(
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    "PRO",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            "Reguły wildcard i wyjątki + ukrywanie pustych miejsc po reklamach na stronie",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = adBlockProEnabled,
+                        onCheckedChange = { viewModel.setAdBlockProEnabled(it) },
+                        enabled = adBlockEnabled
+                    )
+                }
+                Spacer(Modifier.height(18.dp))
+                Text("Domyślna wyszukiwarka", style = MaterialTheme.typography.labelLarge)
+                Spacer(Modifier.height(6.dp))
+                PresetDropdown(
+                    options = searchEnginePresets,
+                    selectedValue = searchEngineText,
+                    onOptionSelected = { picked ->
+                        if (picked != null) {
+                            saveSearchEngine(picked)
+                        } else {
+                            searchEngineText = ""
+                        }
+                    }
+                )
+                if (searchEnginePresets.none { it.second == searchEngineText }) {
+                    Spacer(Modifier.height(8.dp))
                     Text(
-                        if (downloadFolderUri != null) "$downloadFolderUri" else "Domyślny katalog systemowy (Pobrane)",
+                        "Użyj {query} w miejscu, gdzie ma trafić wpisana fraza.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { folderPickerLauncher.launch(null) }) { Text("Zmień katalog") }
-                        if (downloadFolderUri != null) {
-                            TextButton(onClick = { viewModel.setDownloadFolderUri(null) }) { Text("Resetuj domyślny") }
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedTextField(
+                        value = searchEngineText,
+                        onValueChange = { searchEngineText = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("Własny adres wyszukiwarki") },
+                        isError = searchEngineText.isBlank()
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Button(
+                        onClick = { saveSearchEngine(searchEngineText) },
+                        enabled = searchEngineText.isNotBlank()
+                    ) {
+                        Text("Zapisz")
+                    }
+                }
+            }
+
+            SettingsSectionCard(title = "Pobieranie", icon = Icons.Default.Download) {
+                Text(
+                    if (downloadFolderUri != null) "Wybrany folder: ${friendlyFolderName(downloadFolderUri!!)}"
+                    else "Domyślny — systemowy folder Pobrane",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { folderPickerLauncher.launch(null) }) {
+                        Text("Wybierz folder")
+                    }
+                    if (downloadFolderUri != null) {
+                        TextButton(onClick = { viewModel.setDownloadFolderUri(null) }) {
+                            Text("Przywróć domyślny")
                         }
                     }
                 }
             }
 
-            // Sekcja: Zarządzanie danymi
-            SettingCategoryHeader("Dane przeglądania", Icons.Default.DeleteSweep)
-            Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(
-                        onClick = {
-                            viewModel.clearHistory()
-                            scope.launch { snackbarHostState.showSnackbar("Wyczyszczono historię przeglądania") }
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text("Wyczyść historię") }
-                    
-                    OutlinedButton(
-                        onClick = {
-                            viewModel.clearCookiesAndSiteData()
-                            scope.launch { snackbarHostState.showSnackbar("Wyczyszczono pliki cookie i dane witryn") }
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text("Wyczyść pliki cookie i dane witryn") }
-                    
-                    OutlinedButton(
-                        onClick = {
-                            viewModel.clearBrowserCache()
-                            scope.launch { snackbarHostState.showSnackbar("Wyczyszczono pamięć podręczną") }
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text("Wyczyść pamięć podręczną (cache)") }
-                }
+            SettingsSectionCard(title = "Prywatność i dane", icon = Icons.Default.PrivacyTip) {
+                ClearDataRow(
+                    title = "Historia",
+                    description = "Lista odwiedzonych stron zapisana w tej aplikacji",
+                    onClear = {
+                        viewModel.clearHistory()
+                        scope.launch { snackbarHostState.showSnackbar("Historia wyczyszczona") }
+                    }
+                )
+                HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                ClearDataRow(
+                    title = "Cookie i dane witryn",
+                    description = "Wylogujesz się ze wszystkich odwiedzanych stron",
+                    onClear = {
+                        viewModel.clearCookiesAndSiteData()
+                        scope.launch { snackbarHostState.showSnackbar("Cookie i dane witryn wyczyszczone") }
+                    }
+                )
+                HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                ClearDataRow(
+                    title = "Bufor (cache)",
+                    description = "Strony mogą wczytywać się chwilę wolniej za pierwszym razem",
+                    onClear = {
+                        viewModel.clearBrowserCache()
+                        scope.launch { snackbarHostState.showSnackbar("Bufor wyczyszczony") }
+                    }
+                )
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
         }
     }
 }
 
+private fun friendlyFolderName(uriString: String): String {
+    return try {
+        val uri = Uri.parse(uriString)
+        val docId = android.provider.DocumentsContract.getTreeDocumentId(uri)
+        docId.substringAfter(':', docId)
+    } catch (e: Exception) {
+        "wybrany folder"
+    }
+}
+
 @Composable
-private fun SettingCategoryHeader(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
+private fun ClearDataRow(title: String, description: String, onClear: () -> Unit) {
+    var confirming by remember { mutableStateOf(false) }
     Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp, start = 4.dp)
+        Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
-        Spacer(Modifier.width(8.dp))
-        Text(title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyMedium)
+            Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        TextButton(onClick = { confirming = true }) { Text("Wyczyść") }
+    }
+    if (confirming) {
+        AlertDialog(
+            onDismissRequest = { confirming = false },
+            title = { Text("Wyczyścić: $title?") },
+            text = { Text("Tej operacji nie można cofnąć.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirming = false
+                    onClear()
+                }) { Text("Wyczyść", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirming = false }) { Text("Anuluj") }
+            }
+        )
+    }
+}
+
+@Composable
+private fun ThemeOption(label: String, selected: Boolean, onClick: () -> Unit) {
+    FilterChip(selected = selected, onClick = onClick, label = { Text(label) })
+}
+
+@Composable
+private fun GradientSwatch(preset: GradientPreset, selected: Boolean, onClick: () -> Unit) {
+    Column(
+        Modifier.width(64.dp).clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            Modifier
+                .size(48.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .then(
+                    if (preset.normalColors.isNotEmpty())
+                        Modifier.background(Brush.linearGradient(preset.normalColors))
+                    else
+                        Modifier.background(MaterialTheme.colorScheme.surfaceVariant)
+                )
+                .then(
+                    if (selected)
+                        Modifier.border(2.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(24.dp))
+                    else Modifier
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            if (selected) {
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = null,
+                    tint = if (preset.normalColors.isNotEmpty()) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            preset.label,
+            fontSize = 10.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun CrashLogScreen(log: String, onContinue: () -> Unit) {
+    val clipboardManager = LocalClipboardManager.current
+    MaterialTheme {
+        Surface(Modifier.fillMaxSize(), color = Color(0xFF1B1B1B)) {
+            Column(Modifier.fillMaxSize().statusBarsPadding().padding(16.dp)) {
+                Text(
+                    "Aplikacja zamknęła się nieoczekiwanie przy poprzednim uruchomieniu",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Poniżej dokładna przyczyna (stack trace). Skopiuj i wklej, żeby to naprawić.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.7f)
+                )
+                Spacer(Modifier.height(12.dp))
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .background(Color.Black)
+                        .padding(10.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text(log, fontSize = 11.sp, color = Color(0xFF7EE787))
+                }
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { clipboardManager.setText(AnnotatedString(log)) }) {
+                        Text("Kopiuj")
+                    }
+                    OutlinedButton(onClick = onContinue) {
+                        Text("Kontynuuj do aplikacji")
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -2055,7 +3941,21 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val crashFile = getFileStreamPath("last_crash.txt")
+        var crashLog by mutableStateOf<String?>(
+            if (crashFile.exists()) crashFile.readText() else null
+        )
         setContent {
+            if (crashLog != null) {
+                CrashLogScreen(
+                    log = crashLog!!,
+                    onContinue = {
+                        crashFile.delete()
+                        crashLog = null
+                        recreate()
+                    }
+                )
+            } else {
             val viewModel: BrowserViewModel = viewModel()
             val theme by viewModel.theme.collectAsState(initial = AppTheme.SYSTEM)
             SuperBrowserTheme(appTheme = theme) {
@@ -2070,11 +3970,28 @@ class MainActivity : ComponentActivity() {
                             onOpenSettings = { navController.navigate("settings") }
                         )
                     }
-                    composable("history") { HistoryScreen(viewModel = viewModel, onBack = { navController.popBackStack() }, onNavigate = { url -> viewModel.navigate(url) }) }
-                    composable("bookmarks") { BookmarksScreen(viewModel = viewModel, onBack = { navController.popBackStack() }, onNavigate = { url -> viewModel.navigate(url) }) }
-                    composable("downloads") { DownloadsScreen(viewModel = viewModel, onBack = { navController.popBackStack() }) }
-                    composable("settings") { SettingsScreen(viewModel = viewModel, onBack = { navController.popBackStack() }) }
+                    composable("history") {
+                        HistoryScreen(
+                            viewModel = viewModel,
+                            onBack = { navController.popBackStack() },
+                            onNavigate = { url -> viewModel.navigate(url) }
+                        )
+                    }
+                    composable("bookmarks") {
+                        BookmarksScreen(
+                            viewModel = viewModel,
+                            onBack = { navController.popBackStack() },
+                            onNavigate = { url -> viewModel.navigate(url) }
+                        )
+                    }
+                    composable("downloads") {
+                        DownloadsScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
+                    }
+                    composable("settings") {
+                        SettingsScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
+                    }
                 }
+            }
             }
         }
     }

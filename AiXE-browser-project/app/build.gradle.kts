@@ -84,4 +84,7 @@ dependencies {
 
     // ----- DataStore (ustawienia: motyw, wyszukiwarka, adblock, gradient nowej karty itd.) -----
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    // ----- Webkit (Naprawia błędy typu Unresolved reference: webkit / ProfileStore / WebViewFeature) -----
+    implementation("androidx.webkit:webkit:1.11.0")
 }
